@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CricNova – API License & Client Management Hub</title>
+    <link rel="icon" href="https://img.icons8.com/color/48/cricket.png">
+    <style>
+        :root {
+            --bg: #070b14;
+            --sidebar: #0b1120;
+            --card: #0f172a;
+            --card-border: #1e293b;
+            --primary: #0284c7;
+            --accent: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; }
+        
+        /* Auth Screen */
+        #auth-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: var(--card); border: 1px solid var(--card-border); padding: 2.5rem; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); text-align: center; }
+        .login-card h2 { font-size: 1.6rem; margin-bottom: 0.5rem; color: #38bdf8; }
+        .login-card p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .form-group { text-align: left; margin-bottom: 1.2rem; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.4rem; }
+        .form-control { width: 100%; background: #070b14; border: 1px solid var(--card-border); padding: 0.75rem 1rem; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; }
+        .form-control:focus { border-color: var(--primary); }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1.4rem; border-radius: 8px; font-weight: 600; font-size: 0.95rem; cursor: pointer; border: none; transition: transform 0.15s, opacity 0.15s; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+        .btn-success { background: var(--accent); color: #fff; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-secondary { background: #1e293b; color: #cbd5e1; border: 1px solid var(--card-border); }
+        .btn-secondary:hover { background: #334155; color: #fff; }
+
+        /* Dashboard Container */
+        .dash-wrap { display: flex; flex-direction: column; min-height: 100vh; }
+        header { background: var(--sidebar); border-bottom: 1px solid var(--card-border); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .header-title { font-size: 1.25rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 0.6rem; }
+        .admin-tag { background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; }
+        .diag-badge { font-size: 0.78rem; color: #94a3b8; background: #070b14; padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid var(--card-border); font-family: monospace; }
+        
+        main { padding: 2rem; max-width: 1400px; margin: 0 auto; width: 100%; flex: 1; }
+        
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.5rem; }
+        .stat-label { font-size: 0.85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 800; color: #fff; }
+        .stat-value.highlight { color: #38bdf8; }
+        .stat-value.green { color: #34d399; }
+        .stat-value.orange { color: #f59e0b; }
+
+        /* Actions Bar */
+        .actions-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .search-input { width: 280px; background: var(--card); border: 1px solid var(--card-border); padding: 0.65rem 1rem; border-radius: 8px; color: #fff; font-size: 0.9rem; outline: none; }
+
+        /* Table */
+        .table-wrap { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; overflow-x: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-bottom: 2rem; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+        th { background: #0b1120; padding: 1rem; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--card-border); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        td { padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .client-name { font-weight: 700; color: #fff; display: block; }
+        .client-email { font-size: 0.8rem; color: var(--muted); }
+        .api-key-box { display: flex; align-items: center; gap: 0.4rem; font-family: monospace; font-size: 0.85rem; color: #cbd5e1; background: #070b14; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--card-border); max-width: 230px; }
+        .copy-btn { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.85rem; padding: 0.2rem; }
+        .copy-btn:hover { color: #fff; }
+
+        /* Progress Bar */
+        .prog-wrap { width: 150px; }
+        .prog-text { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.3rem; font-weight: 600; }
+        .prog-bar { height: 6px; background: #1e293b; border-radius: 9999px; overflow: hidden; }
+        .prog-fill { height: 100%; border-radius: 9999px; transition: width 0.3s; }
+        .prog-green { background: #10b981; }
+        .prog-orange { background: #f59e0b; }
+        .prog-red { background: #ef4444; }
+
+        /* Status Badges */
+        .badge { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 9999px; text-transform: uppercase; }
+        .badge-active { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-exhausted { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-expired { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+        .badge-suspended { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-orange { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+        .btn-action { background: #1e293b; border: 1px solid var(--card-border); color: #fff; padding: 0.4rem 0.65rem; border-radius: 6px; font-size: 0.78rem; cursor: pointer; transition: background 0.15s; }
+        .btn-action:hover { background: #334155; }
+        .btn-action.add { color: #34d399; }
+        .btn-action.del { color: #f87171; }
+        .btn-action.edit { color: #38bdf8; }
+
+        /* Modals */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 500; display: none; align-items: center; justify-content: center; padding: 1rem; }
+        .modal { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 2rem; width: 100%; max-width: 520px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .modal-header h3 { font-size: 1.3rem; color: #fff; }
+        .close-modal { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; }
+        .close-modal:hover { color: #fff; }
+
+        .log-item { padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+        .log-tag { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+    </style>
+</head>
+<body>
+
+    <!-- Login Modal -->
+    <div id="auth-overlay">
+        <div class="login-card">
+            <h2>🏏 CricNova Admin</h2>
+            <p>Enter Master Admin Password to access the commercial management console</p>
+            <div class="form-group">
+                <label>Admin Password</label>
+                <input type="password" id="admin-pass-input" class="form-control" placeholder="Enter Master Admin Password" onkeydown="if(event.key==='Enter') loginAdmin()">
+            </div>
+            <button class="btn btn-primary" onclick="loginAdmin()">Sign In to Dashboard</button>
+            <div id="login-err" style="color:var(--danger); font-size:0.85rem; margin-top:0.8rem; display:none; padding:0.5rem; background:rgba(239,68,68,0.1); border-radius:6px; border:1px solid rgba(239,68,68,0.2);">Invalid Admin Password</div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="dash-wrap">
+        <header>
+            <div class="header-title">
+                🏏 CricNova Commercial Hub
+                <span class="admin-tag">MASTER ADMIN</span>
+                <span class="diag-badge" id="sys-diag">⚡ Loading system health...</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                <button class="btn btn-secondary" style="padding:0.45rem 0.8rem; font-size:0.82rem;" onclick="downloadBackup()">📥 Backup DB</button>
+                <button class="btn btn-secondary" style="padding:0.45rem 0.8rem; font-size:0.82rem;" onclick="openLogsModal()">📋 Activity Logs</button>
+                <button class="btn btn-secondary" style="padding:0.45rem 0.8rem; font-size:0.82rem;" onclick="openSettingsModal()">⚙️ Settings & Password</button>
+                <button class="btn-action" style="padding:0.45rem 0.8rem; font-size:0.82rem;" onclick="logoutAdmin()">Logout</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Commercial Clients</div>
+                    <div class="stat-value highlight" id="stat-total-clients">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Active Running Licenses</div>
+                    <div class="stat-value green" id="stat-active-clients">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Requests Handled</div>
+                    <div class="stat-value" id="stat-total-reqs">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Limit Exhausted / Expired</div>
+                    <div class="stat-value orange" id="stat-exhausted">0</div>
+                </div>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="actions-bar">
+                <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+                    <input type="text" class="search-input" id="search-box" placeholder="🔍 Search name, email or key..." oninput="filterClients()">
+                    <select id="status-filter" class="form-control" style="width:160px; padding:0.65rem 0.8rem; font-size:0.85rem;" onchange="filterClients()">
+                        <option value="all">All Statuses</option>
+                        <option value="active">Active Only</option>
+                        <option value="quota_exceeded">Limit Reached</option>
+                        <option value="expired">Expired</option>
+                        <option value="suspended">Paused</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="openCreateModal()">➕ Generate New Client API Key</button>
+            </div>
+
+            <!-- Table -->
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Client / Buyer</th>
+                            <th>API Key</th>
+                            <th>Plan</th>
+                            <th>Usage Quota</th>
+                            <th>Expiry</th>
+                            <th>Status</th>
+                            <th>Manage Quota & Key</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-table-body">
+                        <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:2rem;">Loading client database...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Incoming Payment Orders Section -->
+            <div style="margin-top:2.5rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.8rem;">
+                    <h3 style="color:#38bdf8; font-size:1.2rem; display:flex; align-items:center; gap:0.5rem;">
+                        📥 Incoming Payment Orders (Website Checkouts)
+                    </h3>
+                    <div style="display:flex; gap:0.6rem; align-items:center;">
+                        <select id="order-filter" class="form-control" style="width:150px; padding:0.4rem 0.6rem; font-size:0.8rem;" onchange="filterOrders()">
+                            <option value="all">All Orders</option>
+                            <option value="pending" selected>Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                        <button class="btn btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="loadOrders()">🔄 Refresh Orders</button>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Buyer Email</th>
+                                <th>Plan</th>
+                                <th>Amount</th>
+                                <th>UTR / Ref ID</th>
+                                <th>Order Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:1.5rem;">No payment orders yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Client Key Modal -->
+    <div class="modal-overlay" id="create-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Generate New Client API Key</h3>
+                <button class="close-modal" onclick="closeCreateModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Client / Buyer Name</label>
+                <input type="text" id="new-name" class="form-control" placeholder="e.g. Rahul Sharma (Cricket App)">
+            </div>
+            <div class="form-group">
+                <label>Buyer Email / WhatsApp</label>
+                <input type="text" id="new-email" class="form-control" placeholder="e.g. client@example.com">
+            </div>
+            <div class="form-group">
+                <label>Purchased Plan</label>
+                <select id="new-plan" class="form-control" onchange="adjustDefaultLimit()">
+                    <option value="Starter Plan">Starter Plan (₹299/mo - 10k requests)</option>
+                    <option value="Pro App Plan" selected>Pro App Plan (₹799/mo - 50k requests)</option>
+                    <option value="Enterprise Plan">Enterprise Plan (₹1,499/mo - 150k requests)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Monthly Request Limit (Number of calls)</label>
+                <input type="number" id="new-limit" class="form-control" value="50000">
+            </div>
+            <div class="form-group">
+                <label>Validity Duration (Days)</label>
+                <input type="number" id="new-days" class="form-control" value="30">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:1.5rem;">
+                <button class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                <button class="btn btn-success" onclick="submitCreateKey()">Generate & Save Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Client Modal -->
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>✏️ Edit Client License</h3>
+                <button class="close-modal" onclick="closeEditModal()">&times;</button>
+            </div>
+            <input type="hidden" id="edit-client-id">
+            <div class="form-group">
+                <label>Client / App Name</label>
+                <input type="text" id="edit-name" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Buyer Email</label>
+                <input type="email" id="edit-email" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Plan Name</label>
+                <input type="text" id="edit-plan" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Monthly Request Limit</label>
+                <input type="number" id="edit-limit" class="form-control">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:1.5rem;">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="btn btn-success" onclick="saveClientEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Delivery Template Modal -->
+    <div class="modal-overlay" id="email-modal">
+        <div class="modal" style="max-width:580px;">
+            <div class="modal-header">
+                <h3>✉️ Deliver API Key to Buyer</h3>
+                <button class="close-modal" onclick="closeEmailModal()">&times;</button>
+            </div>
+            <p style="color:var(--muted); font-size:0.85rem; margin-bottom:1rem;">Pre-formatted welcome email with API key and endpoint instructions ready to send.</p>
+            <div class="form-group">
+                <label>Buyer Email (To)</label>
+                <input type="text" id="email-to" class="form-control" readonly>
+            </div>
+            <div class="form-group">
+                <label>Email Subject</label>
+                <input type="text" id="email-subject" class="form-control" readonly>
+            </div>
+            <div class="form-group">
+                <label>Email Body</label>
+                <textarea id="email-body" class="form-control" rows="9" style="font-family:monospace; font-size:0.82rem; line-height:1.4;"></textarea>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap:0.8rem; margin-top:1.5rem;">
+                <button class="btn btn-secondary" onclick="copyEmailBody()">📋 Copy Email Text</button>
+                <a id="email-mailto-btn" href="#" class="btn btn-success" style="text-decoration:none;">🚀 Open in Gmail / Outlook</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Logs Modal -->
+    <div class="modal-overlay" id="logs-modal">
+        <div class="modal" style="max-width:620px;">
+            <div class="modal-header">
+                <h3>📋 Recent Admin Activity Logs</h3>
+                <button class="close-modal" onclick="closeLogsModal()">&times;</button>
+            </div>
+            <div id="logs-list" style="max-height:400px; overflow-y:auto;">
+                <div style="text-align:center; color:var(--muted); padding:1rem;">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings & Change Password Modal -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal" style="max-width:540px;">
+            <div class="modal-header">
+                <h3>⚙️ Admin & Payment Settings</h3>
+                <button class="close-modal" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            
+            <h4 style="color:#38bdf8; font-size:0.95rem; margin-bottom:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">UPI & Payment Gateway</h4>
+            <div class="form-group">
+                <label>UPI ID (For Buyer Payments & QR Code)</label>
+                <input type="text" id="setting-upi" class="form-control" placeholder="e.g. yagnikrathod089@oksbi">
+            </div>
+            <div class="form-group">
+                <label>Payee Name</label>
+                <input type="text" id="setting-name" class="form-control" placeholder="e.g. Yagnik Rathod">
+            </div>
+            <div class="form-group">
+                <label>Support / Notification Email</label>
+                <input type="email" id="setting-email" class="form-control" placeholder="e.g. yagnikrathod089@gmail.com">
+            </div>
+            <button class="btn btn-success" style="width:100%; margin-bottom:1.5rem;" onclick="savePaymentSettings()">💾 Save Payment Settings</button>
+
+            <hr style="border:0; border-top:1px solid var(--card-border); margin:1.5rem 0;">
+
+            <h4 style="color:#f59e0b; font-size:0.95rem; margin-bottom:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Change Master Admin Password</h4>
+            <div class="form-group">
+                <label>Current Password</label>
+                <input type="password" id="pass-current" class="form-control" placeholder="Enter current admin password">
+            </div>
+            <div class="form-group">
+                <label>New Password (Min 6 chars)</label>
+                <input type="password" id="pass-new" class="form-control" placeholder="Enter new strong password">
+            </div>
+            <button class="btn btn-primary" style="width:100%; background:#f59e0b;" onclick="saveNewPassword()">🔒 Update Password</button>
+        </div>
+    </div>
+
+    <script>
+        let adminToken = localStorage.getItem('cricnova_admin_token') || '';
+        let allClientsData = [];
+        let allOrdersData = [];
+
+        if (adminToken) {
+            verifyToken();
+        }
+
+        function loginAdmin() {
+            const pass = document.getElementById('admin-pass-input').value;
+            const errBox = document.getElementById('login-err');
+            errBox.style.display = 'none';
+
+            fetch('/admin/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pass })
+            })
+            .then(r => r.json().then(data => ({ status: r.status, ok: r.ok, data })))
+            .then(res => {
+                if (res.ok) {
+                    adminToken = res.data.token;
+                    localStorage.setItem('cricnova_admin_token', adminToken);
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    loadClients();
+                    loadDiagnostics();
+                } else {
+                    errBox.innerText = res.data.message || 'Invalid Admin Password';
+                    errBox.style.display = 'block';
+                }
+            })
+            .catch(() => alert('Server connection error'));
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('cricnova_admin_token');
+            location.reload();
+        }
+
+        function verifyToken() {
+            fetch('/admin/api/clients', {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(r => {
+                if (r.ok) {
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    return r.json();
+                } else {
+                    localStorage.removeItem('cricnova_admin_token');
+                    document.getElementById('auth-overlay').style.display = 'flex';
+                }
+            })
+            .then(data => {
+                if (data) {
+                    renderDashboard(data);
+                    loadDiagnostics();
+                    loadOrders();
+                }
+            });
+        }
+
+        function loadDiagnostics() {
+            fetch('/admin/api/health', {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    const hrs = Math.floor(data.uptimeSeconds / 3600);
+                    const mins = Math.floor((data.uptimeSeconds % 3600) / 60);
+                    const uptimeStr = hrs > 0 ? (hrs + 'h ' + mins + 'm') : (mins + 'm');
+                    document.getElementById('sys-diag').innerText = '⚡ Uptime: ' + uptimeStr + ' | RAM: ' + data.memoryRss;
+                }
+            })
+            .catch(() => {});
+        }
+
+        function loadClients() {
+            fetch('/admin/api/clients', {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                renderDashboard(data);
+            });
+            loadOrders();
+        }
+
+        function renderDashboard(data) {
+            allClientsData = data.clients || [];
+            
+            // Stats
+            document.getElementById('stat-total-clients').innerText = allClientsData.length;
+            const active = allClientsData.filter(c => c.displayStatus === 'active').length;
+            document.getElementById('stat-active-clients').innerText = active;
+            const totalReqs = allClientsData.reduce((acc, c) => acc + (c.used || 0), 0);
+            document.getElementById('stat-total-reqs').innerText = totalReqs.toLocaleString();
+            const exhausted = allClientsData.filter(c => c.displayStatus === 'quota_exceeded' || c.displayStatus === 'expired').length;
+            document.getElementById('stat-exhausted').innerText = exhausted;
+
+            filterClients();
+        }
+
+        function renderTable(clients) {
+            const tbody = document.getElementById('clients-table-body');
+            if (!clients || clients.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--muted); padding:2rem;">No matching API clients found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = clients.map(c => {
+                const percent = c.percentUsed || 0;
+                let progColor = 'prog-green';
+                if (percent >= 90) progColor = 'prog-red';
+                else if (percent >= 70) progColor = 'prog-orange';
+
+                let badgeHtml = '<span class="badge badge-active">Active</span>';
+                if (c.displayStatus === 'quota_exceeded') {
+                    badgeHtml = '<span class="badge badge-exhausted">Quota Limit Reached</span>';
+                } else if (c.displayStatus === 'expired') {
+                    badgeHtml = '<span class="badge badge-expired">Expired</span>';
+                } else if (c.displayStatus === 'suspended') {
+                    badgeHtml = '<span class="badge badge-suspended">Paused</span>';
+                }
+
+                const expDate = new Date(c.expiresAt).toLocaleDateString('en-GB');
+
+                return `
+                <tr>
+                    <td>
+                        <span class="client-name">${escapeHtml(c.name)}</span>
+                        <span class="client-email">${escapeHtml(c.email)}</span>
+                    </td>
+                    <td>
+                        <div class="api-key-box">
+                            <span style="overflow:hidden; text-overflow:ellipsis;">${c.apiKey}</span>
+                            <button class="copy-btn" title="Copy Key" onclick="copyKey('${c.apiKey}')">📋</button>
+                        </div>
+                    </td>
+                    <td><b style="color:#cbd5e1;">${escapeHtml(c.plan)}</b></td>
+                    <td>
+                        <div class="prog-wrap">
+                            <div class="prog-text">
+                                <span>${c.used.toLocaleString()}</span>
+                                <span style="color:var(--muted);">${c.limit > 0 ? c.limit.toLocaleString() : '∞'}</span>
+                            </div>
+                            <div class="prog-bar">
+                                <div class="prog-fill ${progColor}" style="width: ${percent}%;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-size:0.85rem; color:#cbd5e1;">${expDate}</td>
+                    <td>${badgeHtml}</td>
+                    <td>
+                        <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                            <button class="btn-action add" title="Add extra requests" onclick="addQuota('${c.id}')">+Quota</button>
+                            <button class="btn-action" title="Reset monthly usage counter to 0" onclick="resetUsage('${c.id}')">🔄 Reset</button>
+                            <button class="btn-action" title="Extend subscription by 30 days" onclick="renewKey('${c.id}')">⏳ +30d</button>
+                            <button class="btn-action edit" title="Edit client details" onclick="openEditModal('${c.id}')">✏️</button>
+                            <button class="btn-action" title="Pause or Resume key" onclick="toggleStatus('${c.id}')">${c.status === 'active' ? '⏸️' : '▶️'}</button>
+                            <button class="btn-action del" title="Delete client" onclick="deleteClient('${c.id}')">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        function filterClients() {
+            const q = (document.getElementById('search-box').value || '').toLowerCase();
+            const statusFilter = document.getElementById('status-filter').value;
+
+            const filtered = allClientsData.filter(c => {
+                const matchesQuery = c.name.toLowerCase().includes(q) || 
+                                     c.email.toLowerCase().includes(q) || 
+                                     c.apiKey.toLowerCase().includes(q);
+                if (!matchesQuery) return false;
+
+                if (statusFilter === 'all') return true;
+                return c.displayStatus === statusFilter;
+            });
+            renderTable(filtered);
+        }
+
+        function copyKey(key) {
+            navigator.clipboard.writeText(key);
+            alert("API Key copied to clipboard!\n\n" + key);
+        }
+
+        function openCreateModal() { document.getElementById('create-modal').style.display = 'flex'; }
+        function closeCreateModal() { document.getElementById('create-modal').style.display = 'none'; }
+
+        function adjustDefaultLimit() {
+            const plan = document.getElementById('new-plan').value;
+            if (plan.includes('Starter')) document.getElementById('new-limit').value = 10000;
+            else if (plan.includes('Pro')) document.getElementById('new-limit').value = 50000;
+            else if (plan.includes('Enterprise')) document.getElementById('new-limit').value = 150000;
+            else document.getElementById('new-limit').value = 0;
+        }
+
+        function submitCreateKey() {
+            const name = document.getElementById('new-name').value;
+            const email = document.getElementById('new-email').value;
+            const plan = document.getElementById('new-plan').value;
+            const limit = document.getElementById('new-limit').value;
+            const days = document.getElementById('new-days').value;
+
+            if (!name) return alert('Please enter client name');
+
+            fetch('/admin/api/create-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ name, email, plan, limit, expiryDays: days })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.ok) {
+                    closeCreateModal();
+                    loadClients();
+                    alert("Success! New API key generated:\n\n" + res.client.apiKey + "\n\nShare this key with the client.");
+                }
+            });
+        }
+
+        // Edit client modal
+        function openEditModal(id) {
+            const client = allClientsData.find(c => c.id === id);
+            if (!client) return;
+            document.getElementById('edit-client-id').value = client.id;
+            document.getElementById('edit-name').value = client.name;
+            document.getElementById('edit-email').value = client.email;
+            document.getElementById('edit-plan').value = client.plan;
+            document.getElementById('edit-limit').value = client.limit;
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function saveClientEdit() {
+            const id = document.getElementById('edit-client-id').value;
+            const name = document.getElementById('edit-name').value.trim();
+            const email = document.getElementById('edit-email').value.trim();
+            const plan = document.getElementById('edit-plan').value.trim();
+            const limit = document.getElementById('edit-limit').value;
+
+            if (!name) return alert('Name cannot be empty');
+
+            fetch('/admin/api/update-client', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ id, name, email, plan, limit })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.ok) {
+                    closeEditModal();
+                    loadClients();
+                } else {
+                    alert('Failed to update client');
+                }
+            });
+        }
+
+        function addQuota(id) {
+            const addAmount = prompt('Enter additional requests to add to this client (e.g. 10000):', '10000');
+            if (!addAmount || isNaN(parseInt(addAmount))) return;
+            fetch('/admin/api/add-quota', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ id, additional: parseInt(addAmount) })
+            })
+            .then(() => loadClients());
+        }
+
+        function resetUsage(id) {
+            if (!confirm('Reset usage counter to 0 for a new monthly cycle?')) return;
+            fetch('/admin/api/reset-usage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ id })
+            })
+            .then(() => loadClients());
+        }
+
+        function renewKey(id) {
+            if (!confirm('Extend client expiry by 30 days?')) return;
+            fetch('/admin/api/renew', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ id, days: 30 })
+            })
+            .then(() => loadClients());
+        }
+
+        function toggleStatus(id) {
+            fetch('/admin/api/toggle-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ id })
+            })
+            .then(() => loadClients());
+        }
+
+        function deleteClient(id) {
+            if (!confirm('Are you sure you want to permanently delete this client API key?')) return;
+            fetch('/admin/api/delete-key', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ id })
+            })
+            .then(() => loadClients());
+        }
+
+        // Orders Management
+        function loadOrders() {
+            fetch('/admin/api/orders', {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                allOrdersData = data.orders || [];
+                filterOrders();
+            });
+        }
+
+        function filterOrders() {
+            const filter = document.getElementById('order-filter').value;
+            const filtered = allOrdersData.filter(o => {
+                if (filter === 'all') return true;
+                return o.status === filter;
+            });
+            renderOrders(filtered);
+        }
+
+        function renderOrders(orders) {
+            const tbody = document.getElementById('orders-table-body');
+            if (!orders || orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--muted); padding:1.5rem;">No payment orders in this view.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = orders.map(o => {
+                const date = new Date(o.createdAt).toLocaleString('en-IN');
+                const isPending = o.status === 'pending';
+                const isApproved = o.status === 'approved';
+                const badge = isPending 
+                    ? '<span class="badge badge-orange">Pending</span>'
+                    : (isApproved ? '<span class="badge badge-active">Approved</span>' : '<span class="badge badge-exhausted">Rejected</span>');
+                
+                let actionBtn = '';
+                if (isPending) {
+                    actionBtn = `
+                        <div style="display:flex; gap:0.4rem;">
+                            <button class="btn btn-success" style="padding:0.35rem 0.65rem; font-size:0.75rem;" onclick="approveOrder('${o.id}')">✓ Approve</button>
+                            <button class="btn btn-danger" style="padding:0.35rem 0.65rem; font-size:0.75rem;" onclick="rejectOrder('${o.id}')">✗ Reject</button>
+                        </div>
+                    `;
+                } else if (isApproved) {
+                    actionBtn = `
+                        <div style="display:flex; gap:0.4rem; align-items:center;">
+                            <button class="btn btn-primary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openEmailModal('${o.id}')">✉️ Email Key</button>
+                            <button class="btn-action del" title="Delete Order" onclick="deleteOrder('${o.id}')">🗑️</button>
+                        </div>
+                    `;
+                } else {
+                    actionBtn = `
+                        <button class="btn-action del" title="Delete Order" onclick="deleteOrder('${o.id}')">🗑️ Delete</button>
+                    `;
+                }
+
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(o.email)}</strong></td>
+                        <td><b style="color:#cbd5e1;">${escapeHtml(o.plan)}</b></td>
+                        <td><strong style="color:#34d399;">₹${o.amount}</strong></td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:0.3rem;">
+                                <span style="font-family:monospace; background:#070b14; padding:0.2rem 0.5rem; border-radius:4px; border:1px solid var(--card-border); color:#38bdf8;">${escapeHtml(o.utr)}</span>
+                                <button class="copy-btn" title="Copy UTR" onclick="copyKey('${escapeHtml(o.utr)}')">📋</button>
+                            </div>
+                        </td>
+                        <td style="font-size:0.82rem; color:var(--muted);">${date}</td>
+                        <td>${badge}</td>
+                        <td>${actionBtn}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function approveOrder(orderId) {
+            if (!confirm('Approve this order and automatically issue an API key for the buyer?')) return;
+            fetch('/admin/api/orders/approve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ id: orderId })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.ok) {
+                    loadClients();
+                    loadOrders();
+                    // Open Email Delivery modal right away!
+                    openEmailModal(orderId, res.client ? res.client.apiKey : '');
+                } else {
+                    alert('Error: ' + (res.error || 'Failed to approve order'));
+                }
+            });
+        }
+
+        function rejectOrder(orderId) {
+            if (!confirm('Reject this payment order?')) return;
+            fetch('/admin/api/orders/reject', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ id: orderId })
+            })
+            .then(() => loadOrders());
+        }
+
+        function deleteOrder(orderId) {
+            if (!confirm('Delete this order record permanently?')) return;
+            fetch('/admin/api/orders/' + orderId, {
+                method: 'DELETE',
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(() => loadOrders());
+        }
+
+        // Email Key Delivery
+        function openEmailModal(orderId, providedKey) {
+            const order = allOrdersData.find(o => o.id === orderId);
+            if (!order) return;
+            const apiKey = providedKey || order.apiKey || 'YOUR_API_KEY';
+            const origin = window.location.origin;
+
+            const subject = "Your Official CricNova Live Cricket API Access Key";
+            const body = 
+`Hi there,
+
+Thank you for choosing CricNova Enterprise Cricket API!
+Your payment of ₹${order.amount} for the ${order.plan} has been verified and your subscription is active.
+
+=========================================
+YOUR OFFICIAL CREDENTIALS:
+=========================================
+API Key: ${apiKey}
+Plan: ${order.plan}
+Status: Active (30 Days Validity)
+
+=========================================
+READY-TO-USE ENDPOINTS:
+=========================================
+1. Live Fixtures & Current Matches:
+${origin}/views/fixtures?api_key=${apiKey}
+
+2. Full Scorecard (Ball-by-Ball, Batsmen & Bowlers):
+${origin}/views/scorecard?api_key=${apiKey}&FixtureId=501
+
+3. Live Commentary Feed:
+${origin}/views/comments?api_key=${apiKey}&FixtureId=501
+
+4. Check Remaining Request Quota:
+${origin}/api/v1/quota?api_key=${apiKey}
+
+Need custom limits or technical assistance? Reply directly to this email or contact yagnikrathod089@gmail.com.
+
+Best Regards,
+CricNova Cricket API Team`;
+
+            document.getElementById('email-to').value = order.email;
+            document.getElementById('email-subject').value = subject;
+            document.getElementById('email-body').value = body;
+
+            const mailtoUrl = "mailto:" + encodeURIComponent(order.email) + 
+                              "?subject=" + encodeURIComponent(subject) + 
+                              "&body=" + encodeURIComponent(body);
+            document.getElementById('email-mailto-btn').setAttribute('href', mailtoUrl);
+            document.getElementById('email-modal').style.display = 'flex';
+        }
+
+        function closeEmailModal() {
+            document.getElementById('email-modal').style.display = 'none';
+        }
+
+        function copyEmailBody() {
+            const bodyText = document.getElementById('email-body').value;
+            navigator.clipboard.writeText(bodyText);
+            alert('Email text copied to clipboard!');
+        }
+
+        // Database Backup
+        function downloadBackup() {
+            fetch('/admin/api/backup', {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(r => r.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'cricnova_database_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            })
+            .catch(() => alert('Failed to download database backup.'));
+        }
+
+        // Activity Logs
+        function openLogsModal() {
+            document.getElementById('logs-modal').style.display = 'flex';
+            fetch('/admin/api/logs', {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                const container = document.getElementById('logs-list');
+                const logs = data.logs || [];
+                if (logs.length === 0) {
+                    container.innerHTML = '<div style="text-align:center; color:var(--muted); padding:1rem;">No activity recorded yet.</div>';
+                    return;
+                }
+                container.innerHTML = logs.map(l => {
+                    const time = new Date(l.timestamp).toLocaleString('en-IN');
+                    return `
+                        <div class="log-item">
+                            <div>
+                                <span class="log-tag">${escapeHtml(l.action)}</span>
+                                <span style="margin-left:0.5rem; color:#f8fafc;">${escapeHtml(l.details)}</span>
+                            </div>
+                            <span style="font-size:0.75rem; color:var(--muted);">${time}</span>
+                        </div>
+                    `;
+                }).join('');
+            });
+        }
+
+        function closeLogsModal() {
+            document.getElementById('logs-modal').style.display = 'none';
+        }
+
+        // Settings & Password Management
+        function openSettingsModal() {
+            fetch('/admin/api/settings', {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok && data.settings) {
+                    document.getElementById('setting-upi').value = data.settings.upiId || 'yagnikrathod089@oksbi';
+                    document.getElementById('setting-name').value = data.settings.payeeName || 'Yagnik Rathod';
+                    document.getElementById('setting-email').value = data.settings.contactEmail || 'yagnikrathod089@gmail.com';
+                }
+                document.getElementById('settings-modal').style.display = 'flex';
+            });
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function savePaymentSettings() {
+            const upiId = document.getElementById('setting-upi').value.trim();
+            const payeeName = document.getElementById('setting-name').value.trim();
+            const contactEmail = document.getElementById('setting-email').value.trim();
+
+            if (!upiId) return alert('Please enter UPI ID');
+
+            fetch('/admin/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ upiId, payeeName, contactEmail })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.ok) {
+                    alert('Payment settings saved successfully!\n\nUPI ID: ' + upiId + '\nAll QR codes on the website will now use this UPI ID.');
+                    closeSettingsModal();
+                }
+            });
+        }
+
+        function saveNewPassword() {
+            const oldPassword = document.getElementById('pass-current').value;
+            const newPassword = document.getElementById('pass-new').value;
+
+            if (!oldPassword) return alert('Please enter current admin password');
+            if (!newPassword || newPassword.length < 6) return alert('New password must be at least 6 characters');
+
+            fetch('/admin/api/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                body: JSON.stringify({ oldPassword, newPassword })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.ok) {
+                    alert('Password changed successfully!\nPlease log in again with your new password.');
+                    logoutAdmin();
+                } else {
+                    alert('Error: ' + (res.error || 'Failed to change password'));
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            return (text || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>

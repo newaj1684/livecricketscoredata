@@ -1,0 +1,38 @@
+# ==========================================
+# CRICNOVA APACHE & CPANEL HOSTING CONFIG
+# ==========================================
+
+# 1. Set default directory index files
+DirectoryIndex index.html index.php
+
+# 2. Prevent directory indexing & file snooping
+Options -Indexes
+
+# 3. Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# 4. Shield sensitive database and configuration files
+<FilesMatch "^(keys\.json|keys\.json\.tmp|\.env|package\.json|package-lock\.json|\.gitignore)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 5. Reverse proxy rules (for cPanel Setup Node.js App or VPS running on port 3000)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # If running Node.js server via reverse proxy on port 3000, uncomment below:
+    # RewriteRule ^views/(.*)$ http://127.0.0.1:3000/views/$1 [P,L]
+    # RewriteRule ^api/(.*)$ http://127.0.0.1:3000/api/$1 [P,L]
+    # RewriteRule ^admin(.*)$ http://127.0.0.1:3000/admin$1 [P,L]
+</IfModule>

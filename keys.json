@@ -1,0 +1,90 @@
+{
+  "adminPassword": "@Yagnik089",
+  "settings": {
+    "upiId": "yagnikrathod089@oksbi",
+    "payeeName": "Yagnik Rathod Cricket",
+    "contactEmail": "yagnikrathod089@gmail.com"
+  },
+  "orders": [
+    {
+      "id": "ord_1790849089818",
+      "email": "priya.sharma@example.com",
+      "plan": "Pro App Plan",
+      "amount": 799,
+      "utr": "987654321098",
+      "status": "approved",
+      "createdAt": "2026-10-01T10:04:49.818Z",
+      "apiKey": "cric_live_01f303c70aabcd2c25e0cf8df9762768",
+      "approvedAt": "2026-10-01T10:04:49.829Z"
+    },
+    {
+      "id": "ord_1790848249801",
+      "email": "rahul.patel@gmail.com",
+      "plan": "Starter Plan",
+      "amount": 299,
+      "utr": "429182749102",
+      "status": "approved",
+      "createdAt": "2026-10-01T09:50:49.802Z",
+      "apiKey": "cric_live_da21328fad378baa63b2527059513277",
+      "approvedAt": "2026-10-01T09:51:30.932Z"
+    }
+  ],
+  "clients": [
+    {
+      "id": "client_1790849089828",
+      "name": "priya.sharma",
+      "email": "priya.sharma@example.com",
+      "apiKey": "cric_live_01f303c70aabcd2c25e0cf8df9762768",
+      "plan": "Pro App Plan",
+      "limit": 50000,
+      "used": 0,
+      "status": "active",
+      "createdAt": "2026-10-01T10:04:49.828Z",
+      "expiresAt": "2026-10-31T10:04:49.828Z"
+    },
+    {
+      "id": "client_1790848290931",
+      "name": "rahul.patel",
+      "email": "rahul.patel@gmail.com",
+      "apiKey": "cric_live_da21328fad378baa63b2527059513277",
+      "plan": "Starter Plan",
+      "limit": 10000,
+      "used": 0,
+      "status": "active",
+      "createdAt": "2026-10-01T09:51:30.931Z",
+      "expiresAt": "2026-10-31T09:51:30.931Z"
+    },
+    {
+      "id": "client_demo_1",
+      "name": "Demo Client App",
+      "email": "demo@example.com",
+      "apiKey": "cric_live_demo1234567890abcdef",
+      "plan": "Starter Plan",
+      "limit": 10000,
+      "used": 142,
+      "status": "active",
+      "createdAt": "2026-10-01T00:00:00.000Z",
+      "expiresAt": "2026-11-01T00:00:00.000Z"
+    }
+  ],
+  "logs": [
+    {
+      "id": "log_1790849089830",
+      "action": "ORDER_APPROVED",
+      "details": "Approved order & issued key for priya.sharma@example.com",
+      "timestamp": "2026-10-01T10:04:49.830Z"
+    },
+    {
+      "id": "log_1790849089829",
+      "action": "KEY_CREATED",
+      "details": "API Key created for priya.sharma (Pro App Plan)",
+      "timestamp": "2026-10-01T10:04:49.829Z"
+    },
+    {
+      "id": "log_1790849089822",
+      "action": "ORDER_SUBMITTED",
+      "details": "Payment order submitted by priya.sharma@example.com (₹799)",
+      "timestamp": "2026-10-01T10:04:49.822Z"
+    }
+  ]
+}
