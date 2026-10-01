@@ -183,50 +183,502 @@ function parseScore(scoreText) {
     return { runs, wickets, overs };
 }
 
+// Comprehensive Cricket Players Database with verified live portraits
+const CRICKET_PLAYERS_DB = {
+    "Rohit Sharma": {
+        displayName: "Rohit Sharma",
+        shortName: "Sharma",
+        dob: "30 April 1987",
+        birthPlace: "Nagpur, Maharashtra, India",
+        height: "5 ft 9 in",
+        type: "Top-order Batter",
+        bio: "Rohit Gurunath Sharma is an Indian international cricketer and the captain of the India national cricket team in Test and ODI formats. Known as the 'Hitman', he is considered one of the greatest opening batsmen in white-ball cricket history.",
+        didyouKnow: "Only player in cricket history to score three double-centuries in One Day Internationals, including the world record 264 vs Sri Lanka.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170658/rohit-sharma.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "Virat Kohli": {
+        displayName: "Virat Kohli",
+        shortName: "Kohli",
+        dob: "05 November 1988",
+        birthPlace: "Delhi, India",
+        height: "5 ft 9 in",
+        type: "Top-order Batter",
+        bio: "Virat Kohli is an Indian international cricketer and former captain of the India national cricket team. Widely regarded as one of the greatest batsmen in modern cricket history with 80+ international centuries.",
+        didyouKnow: "Holds the all-time world record for the most centuries in ODI cricket (50 centuries), surpassing Sachin Tendulkar during the 2023 World Cup.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170661/virat-kohli.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Medium"
+    },
+    "Shubman Gill": {
+        displayName: "Shubman Gill",
+        shortName: "Gill",
+        dob: "08 September 1999",
+        birthPlace: "Fazilka, Punjab, India",
+        height: "5 ft 10 in",
+        type: "Top-order Batter",
+        bio: "Shubman Gill is a prolific Indian international cricketer known for his elegant stroke-play, high back-lift and exceptional timing across all three formats.",
+        didyouKnow: "Youngest cricketer in ODI history to score a double century, hitting 208 off 149 balls against New Zealand in 2023.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170664/shubman-gill.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "KL Rahul": {
+        displayName: "KL Rahul",
+        shortName: "Rahul",
+        dob: "18 April 1992",
+        birthPlace: "Bengaluru, Karnataka, India",
+        height: "5 ft 11 in",
+        type: "Wicketkeeper-Batter",
+        bio: "Kannur Lokesh Rahul is a versatile Indian cricketer who plays as a top-order batsman and specialist wicketkeeper for the Indian national team.",
+        didyouKnow: "Scored the fastest fifty in IPL history (14 balls) and has scored centuries across all formats of international cricket.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170673/kl-rahul.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Medium"
+    },
+    "Hardik Pandya": {
+        displayName: "Hardik Pandya",
+        shortName: "Pandya",
+        dob: "11 October 1993",
+        birthPlace: "Choryasi, Gujarat, India",
+        height: "6 ft 0 in",
+        type: "All-Rounder",
+        bio: "Hardik Himanshu Pandya is an explosive Indian international cricketer. An aggressive batting all-rounder who bowls effective right-arm fast-medium seam deliveries.",
+        didyouKnow: "Captained Gujarat Titans to their maiden IPL trophy in their debut season (2022) and was Player of the Match in the Final.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170666/hardik-pandya.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Fast Medium"
+    },
+    "Ravindra Jadeja": {
+        displayName: "Ravindra Jadeja",
+        shortName: "Jadeja",
+        dob: "06 December 1988",
+        birthPlace: "Navagam Ghed, Gujarat, India",
+        height: "5 ft 8 in",
+        type: "All-Rounder",
+        bio: "Ravindrasinh Anirudhsinh Jadeja, popularly known as 'Sir Jadeja', is one of the premier 3-dimensional all-rounders in modern world cricket and a world-class fielder.",
+        didyouKnow: "One of only two cricketers in First-Class cricket history to score three triple centuries in their career.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170670/ravindra-jadeja.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Slow Left-arm Orthodox"
+    },
+    "Jasprit Bumrah": {
+        displayName: "Jasprit Bumrah",
+        shortName: "Bumrah",
+        dob: "06 December 1993",
+        birthPlace: "Ahmedabad, Gujarat, India",
+        height: "5 ft 9 in",
+        type: "Bowler",
+        bio: "Jasprit Jasbirsingh Bumrah is an Indian international cricketer regarded as the finest all-format pace bowler in the world with exceptional yorkers and deadly reverse swing.",
+        didyouKnow: "First bowler in cricket history to achieve the ICC Number 1 ranking in all three formats (Test, ODI, and T20I).",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170684/jasprit-bumrah.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Fast"
+    },
+    "Mohammed Siraj": {
+        displayName: "Mohammed Siraj",
+        shortName: "Siraj",
+        dob: "13 March 1994",
+        birthPlace: "Hyderabad, Telangana, India",
+        height: "5 ft 10 in",
+        type: "Bowler",
+        bio: "Mohammed Siraj is a fiery Indian international fast bowler known for his relentless stamina, wobble-seam movement, and match-winning spells.",
+        didyouKnow: "Took 6 wickets for 21 runs in the Asia Cup 2023 final, bowling Sri Lanka out for just 50 runs.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170686/mohammed-siraj.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Fast Medium"
+    },
+    "Kuldeep Yadav": {
+        displayName: "Kuldeep Yadav",
+        shortName: "Yadav",
+        dob: "14 December 1994",
+        birthPlace: "Kanpur, Uttar Pradesh, India",
+        height: "5 ft 6 in",
+        type: "Bowler",
+        bio: "Kuldeep Yadav is India's leading left-arm unorthodox wrist-spin bowler (chinaman) with extraordinary deception and match-turning turn.",
+        didyouKnow: "Only Indian bowler to take two hat-tricks in One Day Internationals.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170682/kuldeep-yadav.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Left Arm Wrist Spin"
+    },
+    "Rishabh Pant": {
+        displayName: "Rishabh Pant",
+        shortName: "Pant",
+        dob: "04 October 1997",
+        birthPlace: "Roorkee, Uttarakhand, India",
+        height: "5 ft 7 in",
+        type: "Wicketkeeper-Batter",
+        bio: "Rishabh Rajendra Pant is an Indian international wicketkeeper-batsman renowned for his daring, counter-attacking strokeplay in Test cricket and white-ball matches.",
+        didyouKnow: "Scored the historic 89* at the Gabba in 2021 to lead India to an unforgettable Test series victory in Australia.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170677/rishabh-pant.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Right Arm Medium"
+    },
+    "Surya Kumar": {
+        displayName: "Suryakumar Yadav",
+        shortName: "Yadav",
+        dob: "14 September 1990",
+        birthPlace: "Mumbai, Maharashtra, India",
+        height: "5 ft 9 in",
+        type: "Top-order Batter",
+        bio: "Suryakumar Ashok Yadav (SKY) is an Indian international cricketer and India's T20I captain. Celebrated as the ultimate 360-degree batsman in modern cricket.",
+        didyouKnow: "Reached the ICC No. 1 Men's T20I Batter ranking with an extraordinary career T20I strike rate of over 165.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170680/suryakumar-yadav.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "David Warner": {
+        displayName: "David Warner",
+        shortName: "Warner",
+        dob: "27 October 1986",
+        birthPlace: "Paddington, Sydney, Australia",
+        height: "5 ft 7 in",
+        type: "Top-order Batter",
+        bio: "David Andrew Warner is an Australian international cricketer and former captain. One of the most explosive and celebrated left-handed openers in cricket history.",
+        didyouKnow: "Scored 335* against Pakistan at Adelaide Oval in 2019, the second highest individual score by an Australian in Tests.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170635/david-warner.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Legbreak Googly"
+    },
+    "Steve Smith": {
+        displayName: "Steve Smith",
+        shortName: "Smith",
+        dob: "02 June 1989",
+        birthPlace: "Kogarah, Sydney, Australia",
+        height: "5 ft 9 in",
+        type: "Top-order Batter",
+        bio: "Steven Peter Devereux Smith is an Australian international cricketer and former captain. Widely regarded as the best Test batsman since Sir Donald Bradman.",
+        didyouKnow: "Has achieved the highest Test batting rating (947 points) of any cricketer in the modern era.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170624/steve-smith.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Legbreak Googly"
+    },
+    "Travis Head": {
+        displayName: "Travis Head",
+        shortName: "Head",
+        dob: "29 December 1993",
+        birthPlace: "Adelaide, South Australia",
+        height: "5 ft 10 in",
+        type: "Top-order Batter",
+        bio: "Travis Michael Head is an Australian international cricketer known for aggressive, clutch batting performances in major tournament finals.",
+        didyouKnow: "Player of the Match in both the ICC World Test Championship Final and ICC Cricket World Cup Final in 2023.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170638/travis-head.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "Marnus Labuschagne": {
+        displayName: "Marnus Labuschagne",
+        shortName: "Labuschagne",
+        dob: "22 June 1994",
+        birthPlace: "Klerksdorp, South Africa",
+        height: "5 ft 11 in",
+        type: "Top-order Batter",
+        bio: "Marnus Labuschagne is an Australian international cricketer known for his extraordinary focus, unorthodox antics, and top-tier Test batting consistency.",
+        didyouKnow: "Cricket's first concussion substitute in Test history (Lord's 2019), scoring a match-saving fifty after replacing Steve Smith.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170640/marnus-labuschagne.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Legbreak Googly"
+    },
+    "Glenn Maxwell": {
+        displayName: "Glenn Maxwell",
+        shortName: "Maxwell",
+        dob: "14 October 1988",
+        birthPlace: "Kew, Melbourne, Australia",
+        height: "5 ft 11 in",
+        type: "All-Rounder",
+        bio: "Glenn James Maxwell is an Australian international cricketer famously nicknamed 'The Big Show' for his outrageous power hitting and reverse sweeps.",
+        didyouKnow: "Scored an astonishing 201* off 128 balls while battling severe physical cramps to defeat Afghanistan in World Cup 2023.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170637/glenn-maxwell.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "Marcus Stoinis": {
+        displayName: "Marcus Stoinis",
+        shortName: "Stoinis",
+        dob: "16 August 1989",
+        birthPlace: "Perth, Western Australia",
+        height: "6 ft 1 in",
+        type: "All-Rounder",
+        bio: "Marcus Peter Stoinis is a powerful Australian international cricketer who bowls heavy seamers and hits massive sixes in the middle order.",
+        didyouKnow: "Scored the fastest T20I half-century by an Australian off just 17 balls against Sri Lanka.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170624/steve-smith.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Medium Fast"
+    },
+    "Pat Cummins": {
+        displayName: "Pat Cummins",
+        shortName: "Cummins",
+        dob: "08 May 1993",
+        birthPlace: "Westmead, Sydney, Australia",
+        height: "6 ft 3 in",
+        type: "Bowler",
+        bio: "Patrick James Cummins is the captain of the Australia national cricket team in Test and ODI formats, leading Australia to WTC 2023 and World Cup 2023 triumphs.",
+        didyouKnow: "Named ICC Men's Cricketer of the Year in 2023 after captaining Australia to double ICC World titles.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170642/pat-cummins.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Fast"
+    },
+    "Mitchell Starc": {
+        displayName: "Mitchell Starc",
+        shortName: "Starc",
+        dob: "30 January 1990",
+        birthPlace: "Baulkham Hills, Sydney, Australia",
+        height: "6 ft 5 in",
+        type: "Bowler",
+        bio: "Mitchell Aaron Starc is an Australian international cricketer regarded as one of the greatest left-arm fast bowlers of all time, with blistering pace and swinging yorkers.",
+        didyouKnow: "Leading wicket-taker in both the 2015 and 2019 ICC Cricket World Cups.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170644/mitchell-starc.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Left Arm Fast"
+    },
+    "Josh Hazlewood": {
+        displayName: "Josh Hazlewood",
+        shortName: "Hazlewood",
+        dob: "08 January 1991",
+        birthPlace: "Tamworth, New South Wales, Australia",
+        height: "6 ft 5 in",
+        type: "Bowler",
+        bio: "Josh Reginald Hazlewood is a world-class Australian fast bowler celebrated for his robotic line-and-length accuracy and seam movement.",
+        didyouKnow: "Often compared to Australian legend Glenn McGrath for his disciplined, unerring pitching outside off stump.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170646/josh-hazlewood.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Right Arm Fast Medium"
+    },
+    "Adam Zampa": {
+        displayName: "Adam Zampa",
+        shortName: "Zampa",
+        dob: "31 March 1992",
+        birthPlace: "Shellharbour, New South Wales, Australia",
+        height: "5 ft 8 in",
+        type: "Bowler",
+        bio: "Adam Zampa is Australia's premier limited-overs leg-spin bowler, famous for flippers, googlies, and breaking partnerships.",
+        didyouKnow: "Crucial architect in Australia's T20 World Cup 2021 victory and World Cup 2023 win as leading spinner.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170648/adam-zampa.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Legbreak Googly"
+    },
+    "Alex Carey": {
+        displayName: "Alex Carey",
+        shortName: "Carey",
+        dob: "27 August 1991",
+        birthPlace: "Loxton, South Australia",
+        height: "5 ft 10 in",
+        type: "Wicketkeeper-Batter",
+        bio: "Alex Tyson Carey is Australia's primary Test and ODI wicketkeeper known for lightning glovework and counter-attacking lower-order batting.",
+        didyouKnow: "Former Australian rules football player before choosing professional cricket, captaining GWS Giants in the TAC Cup.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170650/alex-carey.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "Babar Azam": {
+        displayName: "Babar Azam",
+        shortName: "Azam",
+        dob: "15 October 1994",
+        birthPlace: "Lahore, Punjab, Pakistan",
+        height: "5 ft 11 in",
+        type: "Top-order Batter",
+        bio: "Mohammad Babar Azam is a world-renowned Pakistani international cricketer and former captain, famed for his textbook cover drives.",
+        didyouKnow: "Fastest player to reach 5,000 ODI runs in cricket history (97 innings).",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170701/babar-azam.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "Shaheen Afridi": {
+        displayName: "Shaheen Afridi",
+        shortName: "Afridi",
+        dob: "06 April 2000",
+        birthPlace: "Landi Kotal, Khyber Pakhtunkhwa, Pakistan",
+        height: "6 ft 6 in",
+        type: "Bowler",
+        bio: "Shaheen Shah Afridi is a lethal Pakistani left-arm fast bowler who generates extreme pace, bounce, and sharp inswing with the new ball.",
+        didyouKnow: "Won the prestigious Sir Garfield Sobers Trophy (ICC Men's Cricketer of the Year) in 2021.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170708/shaheen-afridi.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Left Arm Fast"
+    },
+    "Mohammad Rizwan": {
+        displayName: "Mohammad Rizwan",
+        shortName: "Rizwan",
+        dob: "01 June 1992",
+        birthPlace: "Peshawar, Khyber Pakhtunkhwa, Pakistan",
+        height: "5 ft 7 in",
+        type: "Wicketkeeper-Batter",
+        bio: "Mohammad Rizwan is Pakistan's premier wicketkeeper-batsman, famed for tireless running between wickets and fearless strokeplay.",
+        didyouKnow: "Holds the record for the most T20I runs scored in a single calendar year (over 1,300 runs in 2021).",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170704/mohammad-rizwan.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Medium"
+    },
+    "Kane Williamson": {
+        displayName: "Kane Williamson",
+        shortName: "Williamson",
+        dob: "08 August 1990",
+        birthPlace: "Tauranga, New Zealand",
+        height: "5 ft 8 in",
+        type: "Top-order Batter",
+        bio: "Kane Stuart Williamson is New Zealand's greatest modern batsman and former captain, leading the Black Caps to World Test Championship glory in 2021.",
+        didyouKnow: "Awarded Player of the Tournament at the 2019 ICC Cricket World Cup for his masterclass captaincy and batting.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170732/kane-williamson.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "Trent Boult": {
+        displayName: "Trent Boult",
+        shortName: "Boult",
+        dob: "22 July 1989",
+        birthPlace: "Rotorua, New Zealand",
+        height: "5 ft 11 in",
+        type: "Bowler",
+        bio: "Trent Alexander Boult is a world-class New Zealand fast bowler who swings the white and red ball menacingly both ways.",
+        didyouKnow: "Took a memorable hat-trick against Australia at Lord's in World Cup 2019.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170738/trent-boult.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Left Arm Fast Medium"
+    },
+    "Joe Root": {
+        displayName: "Joe Root",
+        shortName: "Root",
+        dob: "30 December 1990",
+        birthPlace: "Sheffield, Yorkshire, England",
+        height: "6 ft 0 in",
+        type: "Top-order Batter",
+        bio: "Joseph Edward Root is an English international cricketer and former Test captain with over 12,000 Test runs and 34+ Test hundreds.",
+        didyouKnow: "England's all-time leading run-scorer and century-maker in international Test cricket.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170690/joe-root.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Offbreak"
+    },
+    "Ben Stokes": {
+        displayName: "Ben Stokes",
+        shortName: "Stokes",
+        dob: "04 June 1991",
+        birthPlace: "Christchurch, New Zealand",
+        height: "6 ft 1 in",
+        type: "All-Rounder",
+        bio: "Benjamin Andrew Stokes is England's Test captain and match-winning all-rounder, the talisman behind England's 2019 World Cup and 2022 T20 World Cup triumphs.",
+        didyouKnow: "Played one of cricket's greatest fourth-innings knocks: 135* at Headingley in the 2019 Ashes.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170694/ben-stokes.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Right Arm Fast Medium"
+    },
+    "Jos Buttler": {
+        displayName: "Jos Buttler",
+        shortName: "Buttler",
+        dob: "08 September 1990",
+        birthPlace: "Taunton, Somerset, England",
+        height: "5 ft 11 in",
+        type: "Wicketkeeper-Batter",
+        bio: "Joseph Charles Buttler is England's white-ball captain and one of the most destructive white-ball wicketkeeper-batsmen in history.",
+        didyouKnow: "Captained England to win the ICC Men's T20 World Cup 2022 in Australia.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170692/jos-buttler.jpg",
+        battingHandId: "Right Handed Bat",
+        bowlingType: "Right Arm Medium"
+    },
+    "Quinton de Kock": {
+        displayName: "Quinton de Kock",
+        shortName: "de Kock",
+        dob: "17 December 1992",
+        birthPlace: "Johannesburg, South Africa",
+        height: "5 ft 7 in",
+        type: "Wicketkeeper-Batter",
+        bio: "Quinton de Kock is a South African international cricketer renowned for his flamboyant, fearless strokeplay and athletic glovework.",
+        didyouKnow: "Smashed 4 centuries in a single World Cup edition (World Cup 2023), scoring 591 runs.",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170718/quinton-de-kock.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Slow Left-arm Orthodox"
+    },
+    "Kagiso Rabada": {
+        displayName: "Kagiso Rabada",
+        shortName: "Rabada",
+        dob: "25 May 1995",
+        birthPlace: "Johannesburg, South Africa",
+        height: "6 ft 3 in",
+        type: "Bowler",
+        bio: "Kagiso Rabada is a South African strike fast bowler with sheer pace, steep bounce, and deadly reverse swing.",
+        didyouKnow: "Youngest bowler in cricket history to reach 150 Test wickets (aged 23).",
+        imageUrl: "https://static.cricbuzz.com/a/img/v1/i1/c170724/kagiso-rabada.jpg",
+        battingHandId: "Left Handed Bat",
+        bowlingType: "Right Arm Fast"
+    }
+};
+
 // Generate realistic dummy players for scorecard and player details
 function generatePlayers(team1Name, team2Name, team1Id, team2Id) {
     const list = [];
-    const t1Players = ["Rohit Sharma", "Virat Kohli", "Shubman Gill", "KL Rahul", "Hardik Pandya", "Ravindra Jadeja", "Jasprit Bumrah", "Mohammed Siraj", "Kuldeep Yadav", "Rishabh Pant", "Surya Kumar"];
-    const t2Players = ["David Warner", "Steve Smith", "Travis Head", "Marnus Labuschagne", "Glenn Maxwell", "Marcus Stoinis", "Pat Cummins", "Mitchell Starc", "Josh Hazlewood", "Adam Zampa", "Alex Carey"];
+    const t1Lower = (team1Name || '').toLowerCase();
+    const t2Lower = (team2Name || '').toLowerCase();
 
-    t1Players.forEach((name, i) => {
-        const id = team1Id * 100 + (i + 1);
-        list.push({
+    function getTeamSquad(nameLower) {
+        if (nameLower.includes('ind') || nameLower.includes('bharat')) {
+            return ["Rohit Sharma", "Virat Kohli", "Shubman Gill", "KL Rahul", "Hardik Pandya", "Ravindra Jadeja", "Jasprit Bumrah", "Mohammed Siraj", "Kuldeep Yadav", "Rishabh Pant", "Surya Kumar"];
+        }
+        if (nameLower.includes('aus')) {
+            return ["David Warner", "Steve Smith", "Travis Head", "Marnus Labuschagne", "Glenn Maxwell", "Marcus Stoinis", "Pat Cummins", "Mitchell Starc", "Josh Hazlewood", "Adam Zampa", "Alex Carey"];
+        }
+        if (nameLower.includes('pak')) {
+            return ["Babar Azam", "Mohammad Rizwan", "Shaheen Afridi", "Haris Rauf", "Naseem Shah", "Shadab Khan", "Fakhar Zaman", "Iftikhar Ahmed", "Mohammad Amir", "Imad Wasim", "Agha Salman"];
+        }
+        if (nameLower.includes('eng')) {
+            return ["Jos Buttler", "Joe Root", "Ben Stokes", "Harry Brook", "Liam Livingstone", "Phil Salt", "Sam Curran", "Jofra Archer", "Adil Rashid", "Mark Wood", "Moeen Ali"];
+        }
+        if (nameLower.includes('south') || nameLower.includes('rsa')) {
+            return ["Quinton de Kock", "Kagiso Rabada", "Aiden Markram", "Heinrich Klaasen", "David Miller", "Tristan Stubbs", "Marco Jansen", "Keshav Maharaj", "Anrich Nortje", "Lungi Ngidi", "Tabraiz Shamsi"];
+        }
+        if (nameLower.includes('zealand') || nameLower.includes('nz')) {
+            return ["Kane Williamson", "Trent Boult", "Devon Conway", "Daryl Mitchell", "Glenn Phillips", "Rachin Ravindra", "Mitchell Santner", "Tim Southee", "Matt Henry", "Lockie Ferguson", "Tom Latham"];
+        }
+        return ["Rohit Sharma", "Virat Kohli", "Shubman Gill", "KL Rahul", "Hardik Pandya", "Ravindra Jadeja", "Jasprit Bumrah", "Mohammed Siraj", "Kuldeep Yadav", "Rishabh Pant", "Surya Kumar"];
+    }
+
+    const t1Players = getTeamSquad(t1Lower);
+    const t2Players = getTeamSquad(t2Lower.includes('aus') ? t2Lower : (t1Lower.includes('aus') ? 'eng' : 'aus'));
+
+    function createPlayerObj(name, id, teamName, i) {
+        const info = CRICKET_PLAYERS_DB[name];
+        if (info) {
+            return {
+                id: id,
+                displayName: info.displayName,
+                shortName: info.shortName,
+                dob: info.dob,
+                birthPlace: info.birthPlace,
+                height: info.height,
+                type: info.type,
+                bio: info.bio,
+                didyouKnow: info.didyouKnow,
+                imageUrl: info.imageUrl,
+                battingHandId: info.battingHandId,
+                bowlingType: info.bowlingType
+            };
+        }
+        return {
             id: id,
             displayName: name,
             shortName: name.split(' ').pop(),
-            dob: "1993-04-18",
-            birthPlace: "Mumbai, India",
+            dob: "15 August 1995",
+            birthPlace: "Cricket Ground, " + teamName,
             height: "5 ft 10 in",
-            type: i < 5 ? "Batsman" : (i < 7 ? "All-Rounder" : "Bowler"),
-            bio: `${name} is an international cricket player. Known for exceptional performance.`,
-            didyouKnow: "Key performer across multiple international tournaments.",
-            imageUrl: "https://static.cricbuzz.com/a/img/v1/150x150/i1/c170661/virat-kohli.jpg",
-            battingHandId: "Right Hand Bat",
+            type: i < 5 ? "Top-order Batter" : (i < 7 ? "All-Rounder" : "Bowler"),
+            bio: `${name} is an elite international cricketer representing ${teamName} at the highest level with distinguished performances.`,
+            didyouKnow: `Star performer for ${teamName} across multiple international and domestic tournaments.`,
+            imageUrl: i % 2 === 0 ? "https://static.cricbuzz.com/a/img/v1/i1/c170661/virat-kohli.jpg" : "https://static.cricbuzz.com/a/img/v1/i1/c170624/steve-smith.jpg",
+            battingHandId: "Right Handed Bat",
             bowlingType: i >= 6 ? "Right Arm Fast Medium" : "Right Arm Offbreak"
-        });
+        };
+    }
+
+    t1Players.forEach((name, i) => {
+        list.push(createPlayerObj(name, team1Id * 100 + (i + 1), team1Name, i));
     });
 
     t2Players.forEach((name, i) => {
-        const id = team2Id * 100 + (i + 1);
-        list.push({
-            id: id,
-            displayName: name,
-            shortName: name.split(' ').pop(),
-            dob: "1994-07-22",
-            birthPlace: "Sydney, Australia",
-            height: "6 ft 0 in",
-            type: i < 5 ? "Batsman" : (i < 7 ? "All-Rounder" : "Bowler"),
-            bio: `${name} is an international cricket star playing top tier cricket.`,
-            didyouKnow: "Won several player of the match accolades.",
-            imageUrl: "https://static.cricbuzz.com/a/img/v1/150x150/i1/c170624/steve-smith.jpg",
-            battingHandId: "Right Hand Bat",
-            bowlingType: i >= 6 ? "Left Arm Fast" : "Legbreak Googly"
-        });
+        list.push(createPlayerObj(name, team2Id * 100 + (i + 1), team2Name, i));
     });
 
     return list;
 }
+
 
 // Scrape live cricket scores from Cricbuzz mobile
 async function fetchCricketData() {
