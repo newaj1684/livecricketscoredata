@@ -160,12 +160,19 @@ function apiKeyAuth(optional = false) {
 let cacheTime = 0;
 let cachedData = null;
 const CACHE_DURATION_MS = 15000; // 15 seconds
+const scorecardCache = new Map();
+const commentaryCache = new Map();
+const LIVE_DETAIL_CACHE_TTL = 15000;
 
 const HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9'
 };
+
+function cleanNameStr(name) {
+    return (name || '').replace(/\(c\)|\(wk\)|\*/gi, '').replace(/view match performance|view profile/gi, '').replace(/\s+/g, ' ').trim();
+}
 
 // Helper: parse score string (e.g., "169-7 (20)", "45 (9.5)", "322-9")
 function parseScore(scoreText) {
@@ -1143,6 +1150,115 @@ const CRICKET_PLAYERS_DB = {
     }
 };
 
+
+// UNIVERSAL DYNAMIC PROFILE & AVATAR ENGINE FOR ANY PLAYER
+function createPlayerObj(name, id, teamName, i) {
+    const cleanName = cleanNameStr(name);
+    const info = CRICKET_PLAYERS_DB[cleanName];
+    if (info) {
+        return {
+            id: id,
+            displayName: info.displayName,
+            shortName: info.shortName,
+            dob: info.dob,
+            birthPlace: info.birthPlace,
+            height: info.height,
+            type: info.type,
+            bio: info.bio,
+            didyouKnow: info.didyouKnow,
+            imageUrl: info.imageUrl,
+            battingHandId: info.battingHandId,
+            bowlingType: info.bowlingType
+        };
+    }
+
+    const hash = Math.abs(cleanName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + (id || 1) * 7);
+    const idx = (i !== undefined && !isNaN(i)) ? i : (id % 11);
+    const day = (hash % 28) + 1;
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const month = months[hash % 12];
+    const year = 1994 + (hash % 10);
+    const dob = `${day < 10 ? '0' + day : day} ${month} ${year}`;
+
+    const tLower = (teamName || '').toLowerCase();
+    let teamKey = 'ind';
+    if (tLower.includes('aus') || tLower.includes('sydney') || tLower.includes('melbourne') || tLower.includes('perth') || tLower.includes('brisbane')) teamKey = 'aus';
+    else if (tLower.includes('eng') || tLower.includes('yorkshire') || tLower.includes('surrey')) teamKey = 'eng';
+    else if (tLower.includes('pak') || tLower.includes('lahore') || tLower.includes('karachi')) teamKey = 'pak';
+    else if (tLower.includes('south') || tLower.includes('rsa') || tLower.includes('titans')) teamKey = 'rsa';
+    else if (tLower.includes('zealand') || tLower.includes('nz')) teamKey = 'nz';
+    else if (tLower.includes('west') || tLower.includes('wi') || tLower.includes('windies')) teamKey = 'wi';
+    else if (tLower.includes('afg') || tLower.includes('afghanistan')) teamKey = 'afg';
+    else if (tLower.includes('sl') || tLower.includes('sri') || tLower.includes('lanka')) teamKey = 'sl';
+    else if (tLower.includes('ban') || tLower.includes('bangladesh')) teamKey = 'ban';
+    else if (tLower.includes('jk') || tLower.includes('jammu') || tLower.includes('kashmir')) teamKey = 'jk';
+    else if (tLower.includes('roi') || tLower.includes('rest of india')) teamKey = 'roi';
+    else if (tLower.includes('usa') || tLower.includes('america')) teamKey = 'usa';
+    else if (tLower.includes('nep') || tLower.includes('nepal')) teamKey = 'nep';
+
+    const cityMap = {
+        ind: ["Mumbai, Maharashtra", "Delhi", "Bengaluru, Karnataka", "Chennai, Tamil Nadu", "Ahmedabad, Gujarat", "Hyderabad, Telangana", "Kolkata, West Bengal", "Chandigarh, Punjab"],
+        aus: ["Sydney, New South Wales", "Melbourne, Victoria", "Brisbane, Queensland", "Perth, Western Australia", "Adelaide, South Australia"],
+        eng: ["London, England", "Birmingham, England", "Manchester, England", "Leeds, Yorkshire", "Nottingham, England"],
+        pak: ["Lahore, Punjab", "Karachi, Sindh", "Islamabad", "Peshawar, Khyber Pakhtunkhwa", "Rawalpindi, Punjab"],
+        rsa: ["Johannesburg, South Africa", "Cape Town, South Africa", "Durban, South Africa", "Pretoria, South Africa"],
+        nz: ["Auckland, New Zealand", "Wellington, New Zealand", "Christchurch, New Zealand", "Hamilton, New Zealand"],
+        wi: ["Bridgetown, Barbados", "Kingston, Jamaica", "Port of Spain, Trinidad", "Castries, Saint Lucia"],
+        afg: ["Kabul, Afghanistan", "Kandahar, Afghanistan", "Jalalabad, Nangarhar", "Khost, Afghanistan"],
+        sl: ["Colombo, Sri Lanka", "Kandy, Central Province", "Galle, Southern Province"],
+        ban: ["Dhaka, Bangladesh", "Chittagong, Bangladesh", "Sylhet, Bangladesh"],
+        jk: ["Srinagar, Jammu and Kashmir", "Jammu, Jammu and Kashmir", "Anantnag, Jammu and Kashmir"],
+        roi: ["Delhi, India", "Mumbai, Maharashtra", "Bengaluru, Karnataka", "Kolkata, West Bengal"],
+        usa: ["Los Angeles, California", "Houston, Texas", "New York, USA", "Fort Lauderdale, Florida"],
+        nep: ["Kathmandu, Nepal", "Pokhara, Nepal", "Biratnagar, Nepal"]
+    };
+    const cities = cityMap[teamKey] || cityMap.ind;
+    const birthPlace = cities[hash % cities.length];
+
+    const heights = ["5 ft 8 in", "5 ft 9 in", "5 ft 10 in", "5 ft 11 in", "6 ft 0 in", "6 ft 1 in", "6 ft 2 in"];
+    const height = heights[hash % heights.length];
+
+    const roles = ["Top-order Batter", "Middle-order Batter", "Wicketkeeper-Batter", "Batting All-Rounder", "Bowling All-Rounder", "Fast Bowler", "Spin Bowler"];
+    const type = (idx < 3) ? roles[0] : (idx === 3 ? roles[1] : (idx === 4 ? roles[2] : (idx < 7 ? roles[3] : (idx < 9 ? roles[5] : roles[6]))));
+
+    const battingHand = (hash % 3 === 0) ? "Left Handed Bat" : "Right Handed Bat";
+    const bowlingStyle = (idx < 7) ? ((hash % 2 === 0) ? "Right Arm Medium Fast" : "Right Arm Offbreak") : ((hash % 2 === 0) ? "Right Arm Fast" : "Slow Left-arm Orthodox");
+
+    const colorMap = {
+        ind: { bg: "0077b6", color: "ffffff" },
+        aus: { bg: "f59e0b", color: "000000" },
+        eng: { bg: "dc2626", color: "ffffff" },
+        pak: { bg: "15803d", color: "ffffff" },
+        rsa: { bg: "16a34a", color: "ffffff" },
+        nz: { bg: "111827", color: "ffffff" },
+        wi: { bg: "7f1d1d", color: "ffffff" },
+        afg: { bg: "1d4ed8", color: "ffffff" },
+        sl: { bg: "1e3a8a", color: "ffffff" },
+        ban: { bg: "065f46", color: "ffffff" },
+        jk: { bg: "047857", color: "ffffff" },
+        roi: { bg: "1e40af", color: "ffffff" },
+        usa: { bg: "1e3a8a", color: "ffffff" },
+        nep: { bg: "dc2626", color: "ffffff" }
+    };
+    const cObj = colorMap[teamKey] || { bg: "0f172a", color: "38bdf8" };
+    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName)}&background=${cObj.bg}&color=${cObj.color}&size=256&bold=true&rounded=true`;
+
+    return {
+        id: id,
+        displayName: cleanName,
+        shortName: cleanName.split(' ').pop() || cleanName,
+        dob: dob,
+        birthPlace: birthPlace,
+        height: height,
+        type: type,
+        bio: `${cleanName} is a talented international cricketer playing for ${teamName}. Celebrated for impressive skill, sharp fielding, and consistent performances under pressure.`,
+        didyouKnow: `Key performer representing ${teamName} with notable contributions across domestic, franchise, and international cricket tournaments.`,
+        imageUrl: avatarUrl,
+        battingHandId: battingHand,
+        bowlingType: bowlingStyle
+    };
+}
+
 // Generate realistic squads and players for scorecard and player details
 function generatePlayers(team1Name, team2Name, team1Id, team2Id) {
     const list = [];
@@ -1245,113 +1361,6 @@ function generatePlayers(team1Name, team2Name, team1Id, team2Id) {
     const t1Players = getTeamSquad(t1Lower, 101);
     const t2Players = getTeamSquad(t2Lower, 202);
 
-    function createPlayerObj(name, id, teamName, i) {
-        const cleanName = (name || '').trim();
-        const info = CRICKET_PLAYERS_DB[cleanName];
-        if (info) {
-            return {
-                id: id,
-                displayName: info.displayName,
-                shortName: info.shortName,
-                dob: info.dob,
-                birthPlace: info.birthPlace,
-                height: info.height,
-                type: info.type,
-                bio: info.bio,
-                didyouKnow: info.didyouKnow,
-                imageUrl: info.imageUrl,
-                battingHandId: info.battingHandId,
-                bowlingType: info.bowlingType
-            };
-        }
-
-        // UNIVERSAL DYNAMIC PROFILE & AVATAR ENGINE FOR ANY NEW PLAYER
-        const hash = Math.abs(cleanName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + id * 7);
-        const day = (hash % 28) + 1;
-        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        const month = months[hash % 12];
-        const year = 1994 + (hash % 10);
-        const dob = `${day < 10 ? '0' + day : day} ${month} ${year}`;
-
-        const tLower = (teamName || '').toLowerCase();
-        let teamKey = 'ind';
-        if (tLower.includes('aus') || tLower.includes('sydney') || tLower.includes('melbourne') || tLower.includes('perth') || tLower.includes('brisbane')) teamKey = 'aus';
-        else if (tLower.includes('eng') || tLower.includes('yorkshire') || tLower.includes('surrey')) teamKey = 'eng';
-        else if (tLower.includes('pak') || tLower.includes('lahore') || tLower.includes('karachi')) teamKey = 'pak';
-        else if (tLower.includes('south') || tLower.includes('rsa') || tLower.includes('titans')) teamKey = 'rsa';
-        else if (tLower.includes('zealand') || tLower.includes('nz')) teamKey = 'nz';
-        else if (tLower.includes('west') || tLower.includes('wi') || tLower.includes('windies')) teamKey = 'wi';
-        else if (tLower.includes('afg') || tLower.includes('afghanistan')) teamKey = 'afg';
-        else if (tLower.includes('sl') || tLower.includes('sri') || tLower.includes('lanka')) teamKey = 'sl';
-        else if (tLower.includes('ban') || tLower.includes('bangladesh')) teamKey = 'ban';
-        else if (tLower.includes('jk') || tLower.includes('jammu') || tLower.includes('kashmir')) teamKey = 'jk';
-        else if (tLower.includes('roi') || tLower.includes('rest of india')) teamKey = 'roi';
-        else if (tLower.includes('usa') || tLower.includes('america')) teamKey = 'usa';
-        else if (tLower.includes('nep') || tLower.includes('nepal')) teamKey = 'nep';
-
-        const cityMap = {
-            ind: ["Mumbai, Maharashtra", "Delhi", "Bengaluru, Karnataka", "Chennai, Tamil Nadu", "Ahmedabad, Gujarat", "Hyderabad, Telangana", "Kolkata, West Bengal", "Chandigarh, Punjab"],
-            aus: ["Sydney, New South Wales", "Melbourne, Victoria", "Brisbane, Queensland", "Perth, Western Australia", "Adelaide, South Australia"],
-            eng: ["London, England", "Birmingham, England", "Manchester, England", "Leeds, Yorkshire", "Nottingham, England"],
-            pak: ["Lahore, Punjab", "Karachi, Sindh", "Islamabad", "Peshawar, Khyber Pakhtunkhwa", "Rawalpindi, Punjab"],
-            rsa: ["Johannesburg, South Africa", "Cape Town, South Africa", "Durban, South Africa", "Pretoria, South Africa"],
-            nz: ["Auckland, New Zealand", "Wellington, New Zealand", "Christchurch, New Zealand", "Hamilton, New Zealand"],
-            wi: ["Bridgetown, Barbados", "Kingston, Jamaica", "Port of Spain, Trinidad", "Castries, Saint Lucia"],
-            afg: ["Kabul, Afghanistan", "Kandahar, Afghanistan", "Jalalabad, Nangarhar", "Khost, Afghanistan"],
-            sl: ["Colombo, Sri Lanka", "Kandy, Central Province", "Galle, Southern Province"],
-            ban: ["Dhaka, Bangladesh", "Chittagong, Bangladesh", "Sylhet, Bangladesh"],
-            jk: ["Srinagar, Jammu and Kashmir", "Jammu, Jammu and Kashmir", "Anantnag, Jammu and Kashmir"],
-            roi: ["Delhi, India", "Mumbai, Maharashtra", "Bengaluru, Karnataka", "Kolkata, West Bengal"],
-            usa: ["Los Angeles, California", "Houston, Texas", "New York, USA", "Fort Lauderdale, Florida"],
-            nep: ["Kathmandu, Nepal", "Pokhara, Nepal", "Biratnagar, Nepal"]
-        };
-        const cities = cityMap[teamKey] || cityMap.ind;
-        const birthPlace = cities[hash % cities.length];
-
-        const heights = ["5 ft 8 in", "5 ft 9 in", "5 ft 10 in", "5 ft 11 in", "6 ft 0 in", "6 ft 1 in", "6 ft 2 in"];
-        const height = heights[hash % heights.length];
-
-        const roles = ["Top-order Batter", "Middle-order Batter", "Wicketkeeper-Batter", "Batting All-Rounder", "Bowling All-Rounder", "Fast Bowler", "Spin Bowler"];
-        const type = (i < 3) ? roles[0] : (i === 3 ? roles[1] : (i === 4 ? roles[2] : (i < 7 ? roles[3] : (i < 9 ? roles[5] : roles[6]))));
-
-        const battingHand = (hash % 3 === 0) ? "Left Handed Bat" : "Right Handed Bat";
-        const bowlingStyle = (i < 7) ? ((hash % 2 === 0) ? "Right Arm Medium Fast" : "Right Arm Offbreak") : ((hash % 2 === 0) ? "Right Arm Fast" : "Slow Left-arm Orthodox");
-
-        const colorMap = {
-            ind: { bg: "0077b6", color: "ffffff" },
-            aus: { bg: "f59e0b", color: "000000" },
-            eng: { bg: "dc2626", color: "ffffff" },
-            pak: { bg: "15803d", color: "ffffff" },
-            rsa: { bg: "16a34a", color: "ffffff" },
-            nz: { bg: "111827", color: "ffffff" },
-            wi: { bg: "7f1d1d", color: "ffffff" },
-            afg: { bg: "1d4ed8", color: "ffffff" },
-            sl: { bg: "1e3a8a", color: "ffffff" },
-            ban: { bg: "065f46", color: "ffffff" },
-            jk: { bg: "047857", color: "ffffff" },
-            roi: { bg: "1e40af", color: "ffffff" },
-            usa: { bg: "1e3a8a", color: "ffffff" },
-            nep: { bg: "dc2626", color: "ffffff" }
-        };
-        const cObj = colorMap[teamKey] || { bg: "0f172a", color: "38bdf8" };
-        const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName)}&background=${cObj.bg}&color=${cObj.color}&size=256&bold=true&rounded=true`;
-
-        return {
-            id: id,
-            displayName: cleanName,
-            shortName: cleanName.split(' ').pop(),
-            dob: dob,
-            birthPlace: birthPlace,
-            height: height,
-            type: type,
-            bio: `${cleanName} is a talented international cricketer playing for ${teamName}. Celebrated for impressive skill, sharp fielding, and consistent performances under pressure.`,
-            didyouKnow: `Key performer representing ${teamName} with notable contributions across domestic, franchise, and international cricket tournaments.`,
-            imageUrl: avatarUrl,
-            battingHandId: battingHand,
-            bowlingType: bowlingStyle
-        };
-    }
-
     t1Players.forEach((name, i) => {
         list.push(createPlayerObj(name, team1Id * 100 + (i + 1), team1Name, i));
     });
@@ -1364,6 +1373,342 @@ function generatePlayers(team1Name, team2Name, team1Id, team2Id) {
 }
 
 
+
+// ==========================================
+// REAL-TIME DYNAMIC CRICBUZZ SCRAPERS
+// Live Scorecards & Ball-by-Ball Commentary
+// ==========================================
+
+async function scrapeScorecard(fixtureId, homeTeam, awayTeam) {
+    const cached = scorecardCache.get(fixtureId);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < LIVE_DETAIL_CACHE_TTL)) {
+        return cached.data;
+    }
+
+    try {
+        const url = `https://m.cricbuzz.com/live-cricket-scorecard/${fixtureId}`;
+        const res = await axios.get(url, { headers: HEADERS, timeout: 7000 });
+        const $ = cheerio.load(res.data);
+
+        const scardDivs = $('div[id^="scard-"]');
+        if (scardDivs.length === 0) return null;
+
+        const inningsList = [];
+        const allPlayersMap = new Map();
+
+        scardDivs.each((innIdx, innEl) => {
+            const scard = $(innEl);
+            const innId = innIdx + 1;
+
+            const isTeam1 = innIdx % 2 === 0;
+            const battingTeam = isTeam1 ? homeTeam : awayTeam;
+            const bowlingTeam = isTeam1 ? awayTeam : homeTeam;
+
+            // 1. Batters
+            const batsmen = [];
+            const batRows = scard.find('div.scorecard-bat-grid');
+            batRows.slice(1).each((bIdx, bEl) => {
+                const r = $(bEl);
+                const firstCol = r.children().first();
+                const rawName = firstCol.find('span.hover\\:underline').text().trim() ||
+                                firstCol.find('a[href*="/profiles/"]').text().trim();
+                const cleanName = cleanNameStr(rawName);
+                if (!cleanName || cleanName.toLowerCase() === 'batter') return;
+
+                const profileHref = firstCol.find('a[href*="/profiles/"]').attr('href') || '';
+                const idMatch = profileHref.match(/\/profiles\/(\d+)/);
+                const playerId = idMatch ? parseInt(idMatch[1]) : (battingTeam.Id * 100 + (bIdx + 1));
+
+                const rawDismissal = firstCol.find('div.text-cbTxtSec').text().trim();
+                const isBatting = rawDismissal.toLowerCase().includes('batting') || rawDismissal.toLowerCase().includes('not out');
+                const dismissalText = isBatting ? "not out" : (rawDismissal || "c & b bowler");
+
+                const runsScored = parseInt(r.children().eq(1).text().trim()) || 0;
+                const ballsFaced = parseInt(r.children().eq(2).text().trim()) || 0;
+                const foursScored = parseInt(r.children().eq(3).text().trim()) || 0;
+                const sixesScored = parseInt(r.children().eq(4).text().trim()) || 0;
+                const strikeRate = parseFloat(r.children().eq(5).text().trim()) || (ballsFaced > 0 ? parseFloat(((runsScored / ballsFaced) * 100).toFixed(1)) : 0.0);
+
+                batsmen.push({
+                    playerId: playerId,
+                    battingOrder: bIdx + 1,
+                    runsScored: runsScored,
+                    ballsFaced: ballsFaced,
+                    foursScored: foursScored,
+                    sixesScored: sixesScored,
+                    strikeRate: strikeRate,
+                    isBatting: isBatting,
+                    isOnStrike: isBatting && bIdx === 0,
+                    dismissalText: dismissalText
+                });
+
+                if (!allPlayersMap.has(playerId)) {
+                    allPlayersMap.set(playerId, createPlayerObj(cleanName, playerId, battingTeam.Name, bIdx));
+                }
+            });
+
+            // 2. Bowlers
+            const bowlers = [];
+            const bowlRows = scard.find('div.scorecard-bowl-grid');
+            bowlRows.slice(1).each((bwIdx, bwEl) => {
+                const r = $(bwEl);
+                const firstCol = r.children().first();
+                const rawName = firstCol.find('span.hover\\:underline').text().trim() ||
+                                firstCol.find('a[href*="/profiles/"]').text().trim();
+                const cleanName = cleanNameStr(rawName);
+                if (!cleanName || cleanName.toLowerCase() === 'bowler') return;
+
+                const profileHref = firstCol.find('a[href*="/profiles/"]').attr('href') || '';
+                const idMatch = profileHref.match(/\/profiles\/(\d+)/);
+                const playerId = idMatch ? parseInt(idMatch[1]) : (bowlingTeam.Id * 100 + (bwIdx + 1));
+
+                const oversBowledStr = r.children().eq(1).text().trim() || "0";
+                const maidensBowled = parseInt(r.children().eq(2).text().trim()) || 0;
+                const runsConceded = parseInt(r.children().eq(3).text().trim()) || 0;
+                const wicketsTaken = parseInt(r.children().eq(4).text().trim()) || 0;
+                const economy = parseFloat(r.children().eq(7).text().trim()) || 0.0;
+
+                bowlers.push({
+                    playerId: playerId,
+                    order: bwIdx + 1,
+                    oversBowled: oversBowledStr,
+                    ballsBowled: 0,
+                    maidensBowled: maidensBowled,
+                    runsConceded: runsConceded,
+                    wicketsTaken: wicketsTaken,
+                    economy: economy
+                });
+
+                if (!allPlayersMap.has(playerId)) {
+                    allPlayersMap.set(playerId, createPlayerObj(cleanName, playerId, bowlingTeam.Name, 7 + bwIdx));
+                }
+            });
+
+            // 3. Fall of Wickets
+            const wickets = [];
+            const fowRows = scard.find('div.scorecard-fow-grid');
+            fowRows.slice(1).each((fIdx, fEl) => {
+                const r = $(fEl);
+                const c0 = r.children().eq(0).text().trim();
+                const c1 = r.children().eq(1).text().trim();
+                const c2 = r.children().eq(2).text().trim();
+
+                if (c1.includes('-')) {
+                    const scoreParts = c1.split('-');
+                    const runs = parseInt(scoreParts[0]) || 0;
+                    const order = parseInt(scoreParts[1]) || (fIdx + 1);
+                    const cleanName = cleanNameStr(c0);
+
+                    let pId = battingTeam.Id * 100 + order;
+                    for (const [id, p] of allPlayersMap.entries()) {
+                        if (p.displayName.toLowerCase() === cleanName.toLowerCase()) {
+                            pId = id;
+                            break;
+                        }
+                    }
+                    if (!allPlayersMap.has(pId)) {
+                        allPlayersMap.set(pId, createPlayerObj(cleanName, pId, battingTeam.Name, order));
+                    }
+
+                    wickets.push({
+                        playerId: pId,
+                        runs: runs,
+                        order: order,
+                        overBallDisplay: c2 || "0.0"
+                    });
+                }
+            });
+
+            // 4. Extras & Total
+            let totalExtras = 0, bRuns = 0, lbRuns = 0, wRuns = 0, nbRuns = 0, pRuns = 0;
+            let totalRuns = 0, totalWickets = 0, totalOvers = "20.0", crr = 6.0;
+
+            scard.find('div').each((_, dEl) => {
+                const text = $(dEl).text().trim();
+                if (text.startsWith('Extras') && text.includes('(')) {
+                    const mTot = text.match(/Extras\s*(\d+)/i);
+                    if (mTot) totalExtras = parseInt(mTot[1]);
+                    const mb = text.match(/b\s*(\d+)/i);
+                    if (mb) bRuns = parseInt(mb[1]);
+                    const mlb = text.match(/lb\s*(\d+)/i);
+                    if (mlb) lbRuns = parseInt(mlb[1]);
+                    const mw = text.match(/w\s*(\d+)/i);
+                    if (mw) wRuns = parseInt(mw[1]);
+                    const mnb = text.match(/nb\s*(\d+)/i);
+                    if (mnb) nbRuns = parseInt(mnb[1]);
+                    const mp = text.match(/p\s*(\d+)/i);
+                    if (mp) pRuns = parseInt(mp[1]);
+                } else if (text.startsWith('Total') && text.includes('-')) {
+                    const mScore = text.match(/Total\s*(\d+)-(\d+)/i);
+                    if (mScore) {
+                        totalRuns = parseInt(mScore[1]);
+                        totalWickets = parseInt(mScore[2]);
+                    }
+                    const mOv = text.match(/\(([\d\.]+)\s*Overs?/i);
+                    if (mOv) totalOvers = mOv[1];
+                    const mR = text.match(/RR:\s*([\d\.]+)/i);
+                    if (mR) crr = parseFloat(mR[1]);
+                }
+            });
+
+            if (totalRuns === 0 && batsmen.length > 0) {
+                totalRuns = batsmen.reduce((s, b) => s + b.runsScored, 0) + totalExtras;
+                totalWickets = batsmen.filter(b => !b.isBatting).length;
+            }
+
+            const safeOvers = (!isNaN(parseFloat(totalOvers))) ? totalOvers : "20.0";
+
+            inningsList.push({
+                id: innId,
+                battingTeamId: battingTeam.Id,
+                bowlingTeamId: bowlingTeam.Id,
+                runsScored: totalRuns,
+                numberOfWicketsFallen: totalWickets,
+                oversBowled: safeOvers,
+                currentRunRate: crr,
+                totalExtras: totalExtras,
+                byesRuns: bRuns,
+                legByesRuns: lbRuns,
+                wideBalls: wRuns,
+                noBalls: nbRuns,
+                penalties: pRuns,
+                batsmen: batsmen,
+                bowlers: bowlers,
+                wickets: wickets,
+                overs: []
+            });
+        });
+
+        const result = {
+            innings: inningsList,
+            players: Array.from(allPlayersMap.values())
+        };
+
+        scorecardCache.set(fixtureId, { timestamp: now, data: result });
+        return result;
+    } catch (e) {
+        console.error("Scorecard scrape failed for " + fixtureId + ":", e.message);
+        return null;
+    }
+}
+
+async function scrapeCommentary(fixtureId, currentRuns, currentWickets) {
+    const cached = commentaryCache.get(fixtureId);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < LIVE_DETAIL_CACHE_TTL)) {
+        return cached.data;
+    }
+
+    try {
+        const url = `https://m.cricbuzz.com/cricket-commentary/${fixtureId}`;
+        const res = await axios.get(url, { headers: HEADERS, timeout: 7000 });
+        const $ = cheerio.load(res.data);
+
+        const ballsList = [];
+        $('div.font-bold.text-center').each((_, el) => {
+            const ballText = $(el).text().trim();
+            if (/^\d+\.[1-6]$/.test(ballText)) {
+                const gp = $(el).parent().parent();
+                const commText = gp.children().eq(1).text().trim() ||
+                                 gp.text().replace(ballText, '').replace(/\s+/g, ' ').trim();
+
+                const parts = ballText.split('.');
+                const overNum = parseInt(parts[0]);
+                const ballNum = parseInt(parts[1]);
+
+                let runs = 0;
+                let isWicket = false;
+                const lowerComm = commText.toLowerCase();
+
+                if (lowerComm.includes('six') || lowerComm.includes('6 runs') || lowerComm.startsWith('six')) {
+                    runs = 6;
+                } else if (lowerComm.includes('four') || lowerComm.includes('4 runs') || lowerComm.startsWith('four')) {
+                    runs = 4;
+                } else if (lowerComm.includes('3 runs') || lowerComm.includes('three runs')) {
+                    runs = 3;
+                } else if (lowerComm.includes('2 runs') || lowerComm.includes('two runs')) {
+                    runs = 2;
+                } else if (lowerComm.includes('1 run') || lowerComm.includes('single')) {
+                    runs = 1;
+                } else if (lowerComm.includes('no run') || lowerComm.includes('dot')) {
+                    runs = 0;
+                }
+
+                if (/\b(out!|c & b|caught by|bowled by|run out|stumped|lbw)\b/i.test(commText) ||
+                    (/\b(c\s+[A-Z][a-z]+|b\s+[A-Z][a-z]+)\b/.test(commText) && !lowerComm.includes('outside'))) {
+                    isWicket = true;
+                }
+
+                ballsList.push({
+                    overNum,
+                    ballNum,
+                    ballText,
+                    runs,
+                    isWicket,
+                    message: commText
+                });
+            }
+        });
+
+        if (ballsList.length === 0) return null;
+
+        const oversMap = new Map();
+        ballsList.forEach(b => {
+            if (!oversMap.has(b.overNum)) {
+                oversMap.set(b.overNum, []);
+            }
+            oversMap.get(b.overNum).push(b);
+        });
+
+        const overs = [];
+        for (const [ovNum, balls] of oversMap.entries()) {
+            const overTotalRuns = balls.reduce((s, b) => s + b.runs, 0);
+
+            const ballsArray = balls.map(b => ({
+                ballNumber: b.ballNum,
+                runs: b.runs,
+                runsScored: b.runs,
+                runsConceded: b.runs,
+                isWicket: b.isWicket,
+                comments: [
+                    {
+                        message: b.message,
+                        commentTypeId: "1",
+                        overNumber: ovNum
+                    }
+                ]
+            }));
+
+            overs.push({
+                id: ovNum,
+                overNumber: ovNum,
+                totalInningRuns: currentRuns || 120,
+                totalInningWickets: currentWickets || 4,
+                totalRuns: overTotalRuns,
+                runsConceded: overTotalRuns,
+                runrate: 5.5,
+                balls: ballsArray
+            });
+        }
+
+        const result = {
+            inning: {
+                currentRunRate: 5.5,
+                runsScored: currentRuns || 120,
+                overs: overs
+            },
+            nextPage: "1"
+        };
+
+        commentaryCache.set(fixtureId, { timestamp: now, data: result });
+        return result;
+    } catch (e) {
+        console.error("Commentary scrape failed for " + fixtureId + ":", e.message);
+        return null;
+    }
+}
+
 // Scrape live cricket scores from Cricbuzz mobile
 async function fetchCricketData() {
     const now = Date.now();
@@ -1372,91 +1717,78 @@ async function fetchCricketData() {
     }
 
     try {
-        const res = await axios.get('https://m.cricbuzz.com/cricket-match/live-scores', {
-            headers: HEADERS,
-            timeout: 8000
-        });
+        const [liveRes, upRes] = await Promise.allSettled([
+            axios.get('https://m.cricbuzz.com/cricket-match/live-scores', { headers: HEADERS, timeout: 7000 }),
+            axios.get('https://m.cricbuzz.com/cricket-match/live-scores/upcoming-matches', { headers: HEADERS, timeout: 7000 })
+        ]);
 
-        const $ = cheerio.load(res.data);
         const inProgress = [];
         const completed = [];
         const upcoming = [];
+        const seenIds = new Set();
 
-        $('a[href^="/live-cricket-scores/"]').each((i, el) => {
-            const href = $(el).attr('href') || '';
-            const matchContainer = $(el);
-            const text = matchContainer.text().replace(/\s+/g, ' ').trim();
+        function processHtml(html, isUpcomingPage) {
+            const $ = cheerio.load(html);
+            $('a[href^="/live-cricket-scores/"]').each((i, el) => {
+                const matchContainer = $(el);
+                const teamRows = matchContainer.find('div.flex.items-center.gap-4.justify-between');
+                if (teamRows.length < 2) return;
 
-            if (text.includes('•')) {
+                const href = matchContainer.attr('href') || '';
                 const parts = href.split('/');
                 const matchId = parseInt(parts[2]) || (1000 + i);
+                if (seenIds.has(matchId)) return;
+                seenIds.add(matchId);
 
                 const headerText = matchContainer.find('span.text-xs').first().text().trim() || "";
                 const headerParts = headerText.split('•');
-                const matchTitle = headerParts[0] ? headerParts[0].trim() : `Match ${i + 1}`;
-                let venueName = headerParts[1] ? headerParts[1].trim() : "Mumbai, International Cricket Stadium";
+                const matchTitle = headerParts[0] ? headerParts[0].trim() : `Match ${matchId}`;
+                let venueName = headerParts[1] ? headerParts[1].trim() : "International Cricket Stadium";
                 if (!venueName.includes(',')) {
                     venueName = "International, " + venueName;
                 }
 
-                const teamRows = matchContainer.find('div.flex.items-center.gap-4.justify-between');
-                let team1Name = "Team 1", team1Short = "T1", team1Logo = "", team1ScoreText = "";
-                let team2Name = "Team 2", team2Short = "T2", team2Logo = "", team2ScoreText = "";
+                const t1 = $(teamRows[0]);
+                const t1Spans = t1.find('span');
+                const team1Name = t1Spans.first().text().trim() || "Team 1";
+                const team1Short = (t1Spans.length >= 2 ? $(t1Spans[1]).text().trim() : "") || team1Name.slice(0, 3).toUpperCase();
+                const team1ScoreText = t1.find('span.font-medium, span.wb\\:font-semibold').text().trim();
+                const team1Logo = t1.find('img').attr('src') || "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_160,q_50/lsci/db/PICTURES/CMS/313100/313128.logo.png";
 
-                if (teamRows.length >= 2) {
-                    const t1 = $(teamRows[0]);
-                    team1Logo = t1.find('img').attr('src') || "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_160,q_50/lsci/db/PICTURES/CMS/313100/313128.logo.png";
-                    const t1Spans = t1.find('span');
-                    if (t1Spans.length >= 2) {
-                        team1Name = $(t1Spans[0]).text().trim();
-                        team1Short = $(t1Spans[1]).text().trim() || team1Name.slice(0, 3).toUpperCase();
-                    } else if (t1Spans.length === 1) {
-                        team1Name = $(t1Spans[0]).text().trim();
-                        team1Short = team1Name.slice(0, 3).toUpperCase();
-                    }
-                    team1ScoreText = t1.find('span.font-medium, span.wb\\:font-semibold').text().trim();
-
-                    const t2 = $(teamRows[1]);
-                    team2Logo = t2.find('img').attr('src') || "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_160,q_50/lsci/db/PICTURES/CMS/313100/313129.logo.png";
-                    const t2Spans = t2.find('span');
-                    if (t2Spans.length >= 2) {
-                        team2Name = $(t2Spans[0]).text().trim();
-                        team2Short = $(t2Spans[1]).text().trim() || team2Name.slice(0, 3).toUpperCase();
-                    } else if (t2Spans.length === 1) {
-                        team2Name = $(t2Spans[0]).text().trim();
-                        team2Short = team2Name.slice(0, 3).toUpperCase();
-                    }
-                    team2ScoreText = t2.find('span.font-medium, span.wb\\:font-semibold').text().trim();
-                }
+                const t2 = $(teamRows[1]);
+                const t2Spans = t2.find('span');
+                const team2Name = t2Spans.first().text().trim() || "Team 2";
+                const team2Short = (t2Spans.length >= 2 ? $(t2Spans[1]).text().trim() : "") || team2Name.slice(0, 3).toUpperCase();
+                const team2ScoreText = t2.find('span.font-medium, span.wb\\:font-semibold').text().trim();
+                const team2Logo = t2.find('img').attr('src') || "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_160,q_50/lsci/db/PICTURES/CMS/313100/313129.logo.png";
 
                 const statusSpan = matchContainer.find('span[class*="text-cb"]').last();
-                const statusText = statusSpan.text().trim() || (team1ScoreText ? `${team1Short} ${team1ScoreText}` : "Live");
+                const statusText = statusSpan.text().trim() || (isUpcomingPage ? "Match scheduled" : (team1ScoreText ? `${team1Short} ${team1ScoreText}` : "Live"));
 
                 const s1 = parseScore(team1ScoreText);
                 const s2 = parseScore(team2ScoreText);
 
                 let gameType = "T20";
-                const lowerTitle = (matchTitle + " " + text).toLowerCase();
+                const lowerTitle = (matchTitle + " " + headerText).toLowerCase();
                 if (lowerTitle.includes('odi') || lowerTitle.includes('50 ov')) gameType = "ODI";
                 else if (lowerTitle.includes('test') || lowerTitle.includes('day ')) gameType = "TEST";
 
                 const t1Id = 100 + i;
                 const t2Id = 200 + i;
 
-                // Build 100% crash-proof match object with every expected key!
                 const matchObj = {
                     Id: matchId,
                     Name: matchTitle,
                     GameType: gameType,
                     GameTypeId: 1,
                     GameStatus: statusText,
-                    GameStatusId: "Live", // CRITICAL: Scorecard_Fragment checks .equals("Prematch")!
+                    GameStatusId: "Live",
                     GamedayStatus: "Live",
                     ResultText: statusText,
-                    TossResult: `${team1Name} won the toss and elected to bat`,
+                    TossResult: `${team1Name} won the toss`,
                     IsLive: true,
                     IsInProgress: true,
-                    IsCompleted: statusText.toLowerCase().includes('won by'),
+                    IsCompleted: false,
                     HomeTeamId: t1Id,
                     AwayTeamId: t2Id,
                     HomeTeam: {
@@ -1478,8 +1810,8 @@ async function fetchCricketData() {
                     Competition: {
                         Id: 1,
                         Name: matchTitle,
-                        StartDateTime: "2026-10-01T09:30:00Z", // CRITICAL: MatchInfo_Fragment parses ISO dates!
-                        EndDateTime: "2026-10-01T17:30:00Z"
+                        StartDateTime: new Date().toISOString(),
+                        EndDateTime: new Date(Date.now() + 14400000).toISOString()
                     },
                     Innings: [
                         {
@@ -1487,7 +1819,7 @@ async function fetchCricketData() {
                             BattingTeamId: t1Id,
                             RunsScored: s1.runs,
                             NumberOfWicketsFallen: s1.wickets,
-                            OversBowled: Math.floor(parseFloat(s1.overs)) || 20,
+                            OversBowled: Math.floor(parseFloat(s1.overs) || 0) || 20,
                             oversBowled: (s1.overs && !isNaN(parseFloat(s1.overs))) ? s1.overs : "20.0"
                         },
                         {
@@ -1495,33 +1827,35 @@ async function fetchCricketData() {
                             BattingTeamId: t2Id,
                             RunsScored: s2.runs,
                             NumberOfWicketsFallen: s2.wickets,
-                            OversBowled: Math.floor(parseFloat(s2.overs)) || 16,
+                            OversBowled: Math.floor(parseFloat(s2.overs) || 0) || 16,
                             oversBowled: (s2.overs && !isNaN(parseFloat(s2.overs))) ? s2.overs : "16.0"
                         }
                     ],
-                    // Embedded players array so A_BatsmanScoreAdapter and A_BowlerAdapter never crash!
                     players: generatePlayers(team1Name, team2Name, t1Id, t2Id)
                 };
 
                 const lowerStatus = statusText.toLowerCase();
-                if (lowerStatus.includes('won by') || lowerStatus.includes('match tied') || lowerStatus.includes('draw')) {
+                if (isUpcomingPage || lowerStatus.includes('preview') || lowerStatus.includes('starts at') || lowerStatus.includes('scheduled')) {
+                    matchObj.GameStatusId = "Prematch";
+                    matchObj.IsLive = false;
+                    matchObj.IsInProgress = false;
+                    upcoming.push(matchObj);
+                } else if (lowerStatus.includes('won by') || lowerStatus.includes('match tied') || lowerStatus.includes('draw')) {
                     matchObj.GameStatusId = "Completed";
                     matchObj.IsCompleted = true;
                     matchObj.IsLive = false;
                     matchObj.IsInProgress = false;
                     completed.push(matchObj);
-                } else if (lowerStatus.includes('opt to') || lowerStatus.includes('need') || lowerStatus.includes('lead') || lowerStatus.includes('trail') || lowerStatus.includes('live') || team1ScoreText || team2ScoreText) {
-                    inProgress.push(matchObj);
                 } else {
-                    matchObj.GameStatusId = "Prematch";
-                    matchObj.IsLive = false;
-                    matchObj.IsInProgress = false;
-                    upcoming.push(matchObj);
+                    inProgress.push(matchObj);
                 }
-            }
-        });
+            });
+        }
 
-        if (inProgress.length > 0 || completed.length > 0) {
+        if (liveRes.status === 'fulfilled') processHtml(liveRes.value.data, false);
+        if (upRes.status === 'fulfilled') processHtml(upRes.value.data, true);
+
+        if (inProgress.length > 0 || completed.length > 0 || upcoming.length > 0) {
             const finalUpcoming = (upcoming.length > 0) ? upcoming : getUpcomingMatches();
             cachedData = {
                 InProgressFixtures: inProgress.length > 0 ? inProgress : completed.slice(0, 3),
@@ -1531,15 +1865,11 @@ async function fetchCricketData() {
             cacheTime = now;
             return cachedData;
         }
-
     } catch (err) {
         console.error("Scrape error:", err.message);
     }
 
-    // Default Fallback with complete structure so app never receives null/blank
     if (!cachedData) {
-        const t1Id = 1;
-        const t2Id = 2;
         cachedData = {
             InProgressFixtures: [
                 {
@@ -1551,53 +1881,21 @@ async function fetchCricketData() {
                     GameStatusId: "Live",
                     GamedayStatus: "Live",
                     ResultText: "Live - India need 32 runs in 24 balls",
-                    TossResult: "Australia won the toss and elected to bat",
+                    TossResult: "India won the toss and elected to field",
                     IsLive: true,
                     IsInProgress: true,
                     IsCompleted: false,
-                    HomeTeamId: t1Id,
-                    AwayTeamId: t2Id,
-                    HomeTeam: {
-                        Id: t1Id,
-                        Name: "India",
-                        ShortName: "IND",
-                        LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776162/india.jpg"
-                    },
-                    AwayTeam: {
-                        Id: t2Id,
-                        Name: "Australia",
-                        ShortName: "AUS",
-                        LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776164/australia.jpg"
-                    },
-                    Venue: {
-                        Id: 1,
-                        Name: "Melbourne, Melbourne Cricket Ground"
-                    },
-                    Competition: {
-                        Id: 1,
-                        Name: "India tour of Australia",
-                        StartDateTime: "2026-10-01T09:30:00Z",
-                        EndDateTime: "2026-10-01T17:30:00Z"
-                    },
+                    HomeTeamId: 101,
+                    AwayTeamId: 102,
+                    HomeTeam: { Id: 101, Name: "India", ShortName: "IND", LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776162/india.jpg" },
+                    AwayTeam: { Id: 102, Name: "Australia", ShortName: "AUS", LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776164/australia.jpg" },
+                    Venue: { Id: 1, Name: "Mumbai, Wankhede Stadium" },
+                    Competition: { Id: 1, Name: "Australia tour of India, 2026", StartDateTime: new Date().toISOString(), EndDateTime: new Date(Date.now() + 14400000).toISOString() },
                     Innings: [
-                        {
-                            Id: 1,
-                            BattingTeamId: t2Id,
-                            RunsScored: 185,
-                            NumberOfWicketsFallen: 4,
-                            OversBowled: 20,
-                            oversBowled: "20.0"
-                        },
-                        {
-                            Id: 2,
-                            BattingTeamId: t1Id,
-                            RunsScored: 154,
-                            NumberOfWicketsFallen: 3,
-                            OversBowled: 16,
-                            oversBowled: "16.0"
-                        }
+                        { Id: 1, BattingTeamId: 102, RunsScored: 178, NumberOfWicketsFallen: 5, OversBowled: 20, oversBowled: "20.0" },
+                        { Id: 2, BattingTeamId: 101, RunsScored: 147, NumberOfWicketsFallen: 3, OversBowled: 16, oversBowled: "16.0" }
                     ],
-                    players: generatePlayers("India", "Australia", t1Id, t2Id)
+                    players: generatePlayers("India", "Australia", 101, 102)
                 }
             ],
             CompletedFixtures: [],
@@ -1608,16 +1906,25 @@ async function fetchCricketData() {
 }
 
 function getUpcomingMatches() {
+    const tomorrow = new Date(Date.now() + 86400000);
+    const dayAfter = new Date(Date.now() + 172800000);
+    const day3 = new Date(Date.now() + 259200000);
+
+    const formatMatchDate = (d, timeStr) => {
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        return `${monthNames[d.getMonth()]} ${d.getDate()}, ${timeStr}`;
+    };
+
     return [
         {
             Id: 701,
-            Name: "3rd T20I, India tour of Australia",
+            Name: "1st T20I, West Indies tour of India",
             GameType: "T20",
             GameTypeId: 1,
-            GameStatus: "Match starts tomorrow at 01:30 PM IST",
+            GameStatus: `Match starts ${formatMatchDate(tomorrow, "07:00 PM IST")}`,
             GameStatusId: "Prematch",
             GamedayStatus: "Prematch",
-            ResultText: "Match starts tomorrow at 01:30 PM IST",
+            ResultText: `Match starts ${formatMatchDate(tomorrow, "07:00 PM IST")}`,
             TossResult: "Toss yet to take place",
             IsLive: false,
             IsInProgress: false,
@@ -1632,49 +1939,78 @@ function getUpcomingMatches() {
             },
             AwayTeam: {
                 Id: 102,
-                Name: "Australia",
-                ShortName: "AUS",
-                LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776164/australia.jpg"
+                Name: "West Indies",
+                ShortName: "WI",
+                LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776174/west-indies.jpg"
             },
             Venue: {
                 Id: 1,
-                Name: "Sydney, Sydney Cricket Ground"
+                Name: "Lucknow, Bharat Ratna Shri Atal Bihari Vajpayee Ekana Cricket Stadium"
             },
             Competition: {
                 Id: 1,
-                Name: "India tour of Australia, 2026",
-                StartDateTime: new Date(Date.now() + 86400000).toISOString(),
-                EndDateTime: new Date(Date.now() + 86400000 + 14400000).toISOString()
+                Name: "West Indies tour of India, 2026",
+                StartDateTime: tomorrow.toISOString(),
+                EndDateTime: new Date(tomorrow.getTime() + 14400000).toISOString()
             },
             Innings: [
-                {
-                    Id: 1,
-                    BattingTeamId: 101,
-                    RunsScored: 0,
-                    NumberOfWicketsFallen: 0,
-                    OversBowled: 0,
-                    oversBowled: "0.0"
-                },
-                {
-                    Id: 2,
-                    BattingTeamId: 102,
-                    RunsScored: 0,
-                    NumberOfWicketsFallen: 0,
-                    OversBowled: 0,
-                    oversBowled: "0.0"
-                }
+                { Id: 1, BattingTeamId: 101, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" },
+                { Id: 2, BattingTeamId: 102, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" }
             ],
-            players: generatePlayers("India", "Australia", 101, 102)
+            players: generatePlayers("India", "West Indies", 101, 102)
         },
         {
             Id: 702,
-            Name: "2nd ODI, England tour of South Africa",
-            GameType: "ODI",
-            GameTypeId: 2,
-            GameStatus: "Match starts on Oct 3, 04:30 PM IST",
+            Name: "2nd T20I, West Indies tour of India",
+            GameType: "T20",
+            GameTypeId: 1,
+            GameStatus: `Match starts ${formatMatchDate(dayAfter, "07:00 PM IST")}`,
             GameStatusId: "Prematch",
             GamedayStatus: "Prematch",
-            ResultText: "Match starts on Oct 3, 04:30 PM IST",
+            ResultText: `Match starts ${formatMatchDate(dayAfter, "07:00 PM IST")}`,
+            TossResult: "Toss yet to take place",
+            IsLive: false,
+            IsInProgress: false,
+            IsCompleted: false,
+            HomeTeamId: 101,
+            AwayTeamId: 102,
+            HomeTeam: {
+                Id: 101,
+                Name: "India",
+                ShortName: "IND",
+                LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776162/india.jpg"
+            },
+            AwayTeam: {
+                Id: 102,
+                Name: "West Indies",
+                ShortName: "WI",
+                LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776174/west-indies.jpg"
+            },
+            Venue: {
+                Id: 2,
+                Name: "Kolkata, Eden Gardens"
+            },
+            Competition: {
+                Id: 1,
+                Name: "West Indies tour of India, 2026",
+                StartDateTime: dayAfter.toISOString(),
+                EndDateTime: new Date(dayAfter.getTime() + 14400000).toISOString()
+            },
+            Innings: [
+                { Id: 1, BattingTeamId: 101, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" },
+                { Id: 2, BattingTeamId: 102, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" }
+            ],
+            players: generatePlayers("India", "West Indies", 101, 102)
+        },
+        {
+            Id: 703,
+            Name: "1st ODI, Australia tour of South Africa",
+            GameType: "ODI",
+            GameTypeId: 2,
+            GameStatus: `Match starts ${formatMatchDate(day3, "01:30 PM IST")}`,
+            GameStatusId: "Prematch",
+            GamedayStatus: "Prematch",
+            ResultText: `Match starts ${formatMatchDate(day3, "01:30 PM IST")}`,
             TossResult: "Toss yet to take place",
             IsLive: false,
             IsInProgress: false,
@@ -1689,96 +2025,25 @@ function getUpcomingMatches() {
             },
             AwayTeam: {
                 Id: 104,
-                Name: "England",
-                ShortName: "ENG",
-                LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776166/england.jpg"
+                Name: "Australia",
+                ShortName: "AUS",
+                LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776164/australia.jpg"
             },
             Venue: {
-                Id: 2,
+                Id: 3,
                 Name: "Centurion, SuperSport Park"
             },
             Competition: {
-                Id: 2,
-                Name: "England tour of South Africa, 2026",
-                StartDateTime: new Date(Date.now() + 172800000).toISOString(),
-                EndDateTime: new Date(Date.now() + 172800000 + 28800000).toISOString()
+                Id: 3,
+                Name: "Australia tour of South Africa, 2026",
+                StartDateTime: day3.toISOString(),
+                EndDateTime: new Date(day3.getTime() + 28800000).toISOString()
             },
             Innings: [
-                {
-                    Id: 1,
-                    BattingTeamId: 103,
-                    RunsScored: 0,
-                    NumberOfWicketsFallen: 0,
-                    OversBowled: 0,
-                    oversBowled: "0.0"
-                },
-                {
-                    Id: 2,
-                    BattingTeamId: 104,
-                    RunsScored: 0,
-                    NumberOfWicketsFallen: 0,
-                    OversBowled: 0,
-                    oversBowled: "0.0"
-                }
+                { Id: 1, BattingTeamId: 103, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" },
+                { Id: 2, BattingTeamId: 104, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" }
             ],
-            players: generatePlayers("South Africa", "England", 103, 104)
-        },
-        {
-            Id: 703,
-            Name: "1st Test, New Zealand tour of Pakistan",
-            GameType: "TEST",
-            GameTypeId: 3,
-            GameStatus: "Match starts on Oct 5, 10:00 AM IST",
-            GameStatusId: "Prematch",
-            GamedayStatus: "Prematch",
-            ResultText: "Match starts on Oct 5, 10:00 AM IST",
-            TossResult: "Toss yet to take place",
-            IsLive: false,
-            IsInProgress: false,
-            IsCompleted: false,
-            HomeTeamId: 105,
-            AwayTeamId: 106,
-            HomeTeam: {
-                Id: 105,
-                Name: "Pakistan",
-                ShortName: "PAK",
-                LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776170/pakistan.jpg"
-            },
-            AwayTeam: {
-                Id: 106,
-                Name: "New Zealand",
-                ShortName: "NZ",
-                LogoUrl: "https://static.cricbuzz.com/a/img/v1/0x0/i1/c776172/new-zealand.jpg"
-            },
-            Venue: {
-                Id: 3,
-                Name: "Rawalpindi, Rawalpindi Cricket Stadium"
-            },
-            Competition: {
-                Id: 3,
-                Name: "New Zealand tour of Pakistan, 2026",
-                StartDateTime: new Date(Date.now() + 345600000).toISOString(),
-                EndDateTime: new Date(Date.now() + 345600000 + 432000000).toISOString()
-            },
-            Innings: [
-                {
-                    Id: 1,
-                    BattingTeamId: 105,
-                    RunsScored: 0,
-                    NumberOfWicketsFallen: 0,
-                    OversBowled: 0,
-                    oversBowled: "0.0"
-                },
-                {
-                    Id: 2,
-                    BattingTeamId: 106,
-                    RunsScored: 0,
-                    NumberOfWicketsFallen: 0,
-                    OversBowled: 0,
-                    oversBowled: "0.0"
-                }
-            ],
-            players: generatePlayers("Pakistan", "New Zealand", 105, 106)
+            players: generatePlayers("South Africa", "Australia", 103, 104)
         }
     ];
 }
@@ -1814,122 +2079,164 @@ app.get('/views/scorecard', apiKeyAuth(true), async (req, res) => {
 
         const homeTeam = match.HomeTeam || { Id: 1, Name: "Team A", ShortName: "TMA", LogoUrl: "" };
         const awayTeam = match.AwayTeam || { Id: 2, Name: "Team B", ShortName: "TMB", LogoUrl: "" };
-        const innings = (match.Innings && match.Innings.length > 0) ? match.Innings : [
-            { Id: 1, BattingTeamId: homeTeam.Id, RunsScored: 0, NumberOfWicketsFallen: 0, oversBowled: "0.0", OversBowled: 0 },
-            { Id: 2, BattingTeamId: awayTeam.Id, RunsScored: 0, NumberOfWicketsFallen: 0, oversBowled: "0.0", OversBowled: 0 }
-        ];
-        const playersList = match.players || generatePlayers(homeTeam.Name, awayTeam.Name, homeTeam.Id, awayTeam.Id);
 
-        // Build complete innings array with Batsmen, Bowlers, and Wickets
-        const scorecardInnings = innings.map((inn, idx) => {
-            const isTeam1 = (inn.BattingTeamId === homeTeam.Id);
-            const battingTeamId = inn.BattingTeamId || (isTeam1 ? homeTeam.Id : awayTeam.Id);
-            const bowlingTeamId = isTeam1 ? awayTeam.Id : homeTeam.Id;
+        // If match has not started yet (Prematch), return empty innings so app shows "Match has not started yet"
+        if (match.GameStatusId === "Prematch") {
+            const prematchPlayers = match.players || generatePlayers(homeTeam.Name, awayTeam.Name, homeTeam.Id, awayTeam.Id);
+            return res.json({
+                fixture: {
+                    id: fixtureId,
+                    name: match.Name,
+                    resultText: match.ResultText || "Match has not started yet",
+                    gameStatus: "Prematch",
+                    gameStatusId: "Prematch",
+                    homeTeam: {
+                        id: homeTeam.Id,
+                        name: homeTeam.Name,
+                        shortName: homeTeam.ShortName,
+                        logoUrl: homeTeam.LogoUrl
+                    },
+                    awayTeam: {
+                        id: awayTeam.Id,
+                        name: awayTeam.Name,
+                        shortName: awayTeam.ShortName,
+                        logoUrl: awayTeam.LogoUrl
+                    },
+                    venue: match.Venue || { Id: 1, Name: "Stadium, City" },
+                    competition: match.Competition || { Id: 1, Name: match.Name, StartDateTime: new Date().toISOString(), EndDateTime: new Date(Date.now() + 14400000).toISOString() },
+                    innings: []
+                },
+                players: prematchPlayers
+            });
+        }
 
-            // Batsmen for this inning
-            const batsmen = [
-                {
-                    playerId: battingTeamId * 100 + 1,
-                    battingOrder: 1,
-                    runsScored: Math.max(12, Math.floor((inn.RunsScored || 50) * 0.42)),
-                    ballsFaced: 38,
-                    foursScored: 5,
-                    sixesScored: 2,
-                    strikeRate: 147.3,
-                    isBatting: true,
-                    isOnStrike: true,
-                    dismissalText: "not out"
-                },
-                {
-                    playerId: battingTeamId * 100 + 2,
-                    battingOrder: 2,
-                    runsScored: Math.max(10, Math.floor((inn.RunsScored || 50) * 0.32)),
-                    ballsFaced: 26,
-                    foursScored: 4,
-                    sixesScored: 1,
-                    strikeRate: 138.4,
-                    isBatting: true,
-                    isOnStrike: false,
-                    dismissalText: "not out"
-                },
-                {
-                    playerId: battingTeamId * 100 + 3,
-                    battingOrder: 3,
-                    runsScored: Math.max(8, Math.floor((inn.RunsScored || 50) * 0.18)),
-                    ballsFaced: 16,
-                    foursScored: 2,
-                    sixesScored: 1,
-                    strikeRate: 125.0,
-                    isBatting: false,
-                    isOnStrike: false,
-                    dismissalText: "c & b bowler"
-                }
+        // Live Dynamic Scorecard Scraping
+        let scraped = await scrapeScorecard(fixtureId, homeTeam, awayTeam);
+        let scorecardInnings = [];
+        let playersList = [];
+
+        if (scraped && scraped.innings && scraped.innings.length > 0) {
+            scorecardInnings = scraped.innings;
+            const basePlayers = match.players || generatePlayers(homeTeam.Name, awayTeam.Name, homeTeam.Id, awayTeam.Id);
+            const pMap = new Map();
+            basePlayers.forEach(p => pMap.set(p.id, p));
+            scraped.players.forEach(p => pMap.set(p.id, p));
+            playersList = Array.from(pMap.values());
+        } else {
+            // Graceful fallback to synthetic scorecard if scrape fails
+            const innings = (match.Innings && match.Innings.length > 0) ? match.Innings : [
+                { Id: 1, BattingTeamId: homeTeam.Id, RunsScored: 0, NumberOfWicketsFallen: 0, oversBowled: "0.0", OversBowled: 0 },
+                { Id: 2, BattingTeamId: awayTeam.Id, RunsScored: 0, NumberOfWicketsFallen: 0, oversBowled: "0.0", OversBowled: 0 }
             ];
+            playersList = match.players || generatePlayers(homeTeam.Name, awayTeam.Name, homeTeam.Id, awayTeam.Id);
 
-            // Bowlers for this inning
-            const bowlers = [
-                {
-                    playerId: bowlingTeamId * 100 + 7,
-                    order: 1,
-                    oversBowled: "4",
-                    ballsBowled: 0,
-                    maidensBowled: 0,
-                    runsConceded: 28,
-                    wicketsTaken: Math.max(1, Math.floor((inn.NumberOfWicketsFallen || 2) / 2)),
-                    economy: 7.0
-                },
-                {
-                    playerId: bowlingTeamId * 100 + 8,
-                    order: 2,
-                    oversBowled: "4",
-                    ballsBowled: 0,
-                    maidensBowled: 0,
-                    runsConceded: 34,
-                    wicketsTaken: Math.max(1, Math.ceil((inn.NumberOfWicketsFallen || 2) / 2)),
-                    economy: 8.5
-                }
-            ];
+            scorecardInnings = innings.map((inn, idx) => {
+                const isTeam1 = (inn.BattingTeamId === homeTeam.Id);
+                const battingTeamId = inn.BattingTeamId || (isTeam1 ? homeTeam.Id : awayTeam.Id);
+                const bowlingTeamId = isTeam1 ? awayTeam.Id : homeTeam.Id;
 
-            // Fall of wickets list (CRITICAL: A_FallWickersAdapter_Load iterates over this!)
-            const wickets = [
-                {
-                    playerId: battingTeamId * 100 + 3,
-                    runs: Math.max(25, Math.floor((inn.RunsScored || 50) * 0.3)),
-                    overs: "6.2",
-                    wicketNumber: 1
-                },
-                {
-                    playerId: battingTeamId * 100 + 4,
-                    runs: Math.max(55, Math.floor((inn.RunsScored || 50) * 0.55)),
-                    overs: "11.4",
-                    wicketNumber: 2
-                }
-            ];
+                const batsmen = [
+                    {
+                        playerId: battingTeamId * 100 + 1,
+                        battingOrder: 1,
+                        runsScored: Math.max(12, Math.floor((inn.RunsScored || 50) * 0.42)),
+                        ballsFaced: 38,
+                        foursScored: 5,
+                        sixesScored: 2,
+                        strikeRate: 147.3,
+                        isBatting: true,
+                        isOnStrike: true,
+                        dismissalText: "not out"
+                    },
+                    {
+                        playerId: battingTeamId * 100 + 2,
+                        battingOrder: 2,
+                        runsScored: Math.max(10, Math.floor((inn.RunsScored || 50) * 0.32)),
+                        ballsFaced: 26,
+                        foursScored: 4,
+                        sixesScored: 1,
+                        strikeRate: 138.4,
+                        isBatting: true,
+                        isOnStrike: false,
+                        dismissalText: "not out"
+                    },
+                    {
+                        playerId: battingTeamId * 100 + 3,
+                        battingOrder: 3,
+                        runsScored: Math.max(8, Math.floor((inn.RunsScored || 50) * 0.18)),
+                        ballsFaced: 16,
+                        foursScored: 2,
+                        sixesScored: 1,
+                        strikeRate: 125.0,
+                        isBatting: false,
+                        isOnStrike: false,
+                        dismissalText: "c & b bowler"
+                    }
+                ];
 
-            const safeOversStr = (inn.oversBowled && !isNaN(parseFloat(inn.oversBowled))) 
-                ? String(inn.oversBowled) 
-                : (inn.OversBowled ? String(inn.OversBowled) + ".0" : "20.0");
+                const bowlers = [
+                    {
+                        playerId: bowlingTeamId * 100 + 7,
+                        order: 1,
+                        oversBowled: "4",
+                        ballsBowled: 0,
+                        maidensBowled: 0,
+                        runsConceded: 28,
+                        wicketsTaken: Math.max(1, Math.floor((inn.NumberOfWicketsFallen || 2) / 2)),
+                        economy: 7.0
+                    },
+                    {
+                        playerId: bowlingTeamId * 100 + 8,
+                        order: 2,
+                        oversBowled: "4",
+                        ballsBowled: 0,
+                        maidensBowled: 0,
+                        runsConceded: 34,
+                        wicketsTaken: Math.max(1, Math.ceil((inn.NumberOfWicketsFallen || 2) / 2)),
+                        economy: 8.5
+                    }
+                ];
 
-            return {
-                id: idx + 1,
-                battingTeamId: battingTeamId,
-                bowlingTeamId: bowlingTeamId,
-                runsScored: inn.RunsScored || 0,
-                numberOfWicketsFallen: inn.NumberOfWicketsFallen || 0,
-                oversBowled: safeOversStr,
-                currentRunRate: 8.5,
-                totalExtras: 8,
-                byesRuns: 2,
-                legByesRuns: 3,
-                wideBalls: 2,
-                noBalls: 1,
-                penalties: 0,
-                batsmen: batsmen,
-                bowlers: bowlers,
-                wickets: wickets,
-                overs: []
-            };
-        });
+                const wickets = [
+                    {
+                        playerId: battingTeamId * 100 + 3,
+                        runs: Math.max(25, Math.floor((inn.RunsScored || 50) * 0.3)),
+                        order: 1,
+                        overBallDisplay: "6.2"
+                    },
+                    {
+                        playerId: battingTeamId * 100 + 4,
+                        runs: Math.max(55, Math.floor((inn.RunsScored || 50) * 0.55)),
+                        order: 2,
+                        overBallDisplay: "11.4"
+                    }
+                ];
+
+                const safeOversStr = (inn.oversBowled && !isNaN(parseFloat(inn.oversBowled)))
+                    ? String(inn.oversBowled)
+                    : (inn.OversBowled ? String(inn.OversBowled) + ".0" : "20.0");
+
+                return {
+                    id: idx + 1,
+                    battingTeamId: battingTeamId,
+                    bowlingTeamId: bowlingTeamId,
+                    runsScored: inn.RunsScored || 0,
+                    numberOfWicketsFallen: inn.NumberOfWicketsFallen || 0,
+                    oversBowled: safeOversStr,
+                    currentRunRate: 8.5,
+                    totalExtras: 8,
+                    byesRuns: 2,
+                    legByesRuns: 3,
+                    wideBalls: 2,
+                    noBalls: 1,
+                    penalties: 0,
+                    batsmen: batsmen,
+                    bowlers: bowlers,
+                    wickets: wickets,
+                    overs: []
+                };
+            });
+        }
 
         res.json({
             fixture: {
@@ -1951,10 +2258,10 @@ app.get('/views/scorecard', apiKeyAuth(true), async (req, res) => {
                     logoUrl: awayTeam.LogoUrl
                 },
                 venue: match.Venue || { Id: 1, Name: "Stadium, City" },
-                competition: match.Competition || { Id: 1, Name: "Cricket Series", StartDateTime: "2026-10-01T09:30:00Z", EndDateTime: "2026-10-01T17:30:00Z" },
+                competition: match.Competition || { Id: 1, Name: match.Name, StartDateTime: new Date().toISOString(), EndDateTime: new Date(Date.now() + 14400000).toISOString() },
                 innings: scorecardInnings
             },
-            players: playersList // CRITICAL: Root players array for Batsman, Bowler & PlayerDetails screens!
+            players: playersList
         });
     } catch (err) {
         console.error("Scorecard error:", err);
@@ -1968,7 +2275,7 @@ app.get('/views/scorecard', apiKeyAuth(true), async (req, res) => {
                 homeTeam: { id: 1, name: "Team 1", shortName: "T1", logoUrl: "" },
                 awayTeam: { id: 2, name: "Team 2", shortName: "T2", logoUrl: "" },
                 venue: { Id: 1, Name: "Stadium, City" },
-                competition: { Id: 1, Name: "Cricket Series", StartDateTime: "2026-10-01T09:30:00Z", EndDateTime: "2026-10-01T17:30:00Z" },
+                competition: { Id: 1, Name: "Cricket Series", StartDateTime: new Date().toISOString(), EndDateTime: new Date(Date.now() + 14400000).toISOString() },
                 innings: []
             },
             players: []
@@ -1978,147 +2285,165 @@ app.get('/views/scorecard', apiKeyAuth(true), async (req, res) => {
 
 // 3. Comments endpoint: Real-time ball-by-ball commentary
 app.get('/views/comments', apiKeyAuth(true), async (req, res) => {
-    const fixtureId = parseInt(req.query.FixtureId) || 501;
-    const fixtures = await fetchCricketData();
-    const allMatches = [
-        ...(fixtures.InProgressFixtures || []),
-        ...(fixtures.CompletedFixtures || []),
-        ...(fixtures.UpcomingFixtures || [])
-    ];
-    const match = allMatches.find(m => m.Id === fixtureId) || allMatches[0];
-    const team1Score = match.Innings && match.Innings[0] ? match.Innings[0].RunsScored : 165;
-    const team1Wickets = match.Innings && match.Innings[0] ? match.Innings[0].NumberOfWicketsFallen : 3;
+    try {
+        const fixtureId = parseInt(req.query.FixtureId) || 501;
+        const fixtures = await fetchCricketData();
+        const allMatches = [
+            ...(fixtures.InProgressFixtures || []),
+            ...(fixtures.CompletedFixtures || []),
+            ...(fixtures.UpcomingFixtures || [])
+        ];
+        const match = allMatches.find(m => m.Id === fixtureId) || allMatches[0];
+        const team1Score = match.Innings && match.Innings[0] ? match.Innings[0].RunsScored : 165;
+        const team1Wickets = match.Innings && match.Innings[0] ? match.Innings[0].NumberOfWicketsFallen : 3;
 
-    // Generate comprehensive overs list so LiveInfo, Highlights, and OversInfo fragments NEVER crash!
-    const generatedOvers = [
-        {
-            id: 20,
-            overNumber: 20,
-            totalInningRuns: team1Score,
-            totalInningWickets: team1Wickets,
-            totalRuns: 14,
-            runsConceded: 14,
-            runrate: 8.8,
-            balls: [
-                {
-                    ballNumber: 1,
-                    runs: 1,
-                    runsScored: 1,
-                    runsConceded: 1,
-                    isWicket: false,
-                    comments: [{ message: "Full toss on off, punched down to long-off for a single.", commentTypeId: "1", overNumber: 20 }]
-                },
-                {
-                    ballNumber: 2,
-                    runs: 4,
-                    runsScored: 4,
-                    runsConceded: 4,
-                    isWicket: false,
-                    comments: [{ message: "FOUR! Slashed over backward point with tremendous timing!", commentTypeId: "1", overNumber: 20 }]
-                },
-                {
-                    ballNumber: 3,
-                    runs: 0,
-                    runsScored: 0,
-                    runsConceded: 0,
-                    isWicket: false,
-                    comments: [{ message: "Dot ball. Yorker fired right into the blockhole.", commentTypeId: "1", overNumber: 20 }]
-                },
-                {
-                    ballNumber: 4,
-                    runs: 6,
-                    runsScored: 6,
-                    runsConceded: 6,
-                    isWicket: false,
-                    comments: [{ message: "SIX! Launched high into the stands over deep square leg!", commentTypeId: "1", overNumber: 20 }]
-                },
-                {
-                    ballNumber: 5,
-                    runs: 1,
-                    runsScored: 1,
-                    runsConceded: 1,
-                    isWicket: false,
-                    comments: [{ message: "Good length ball tapped towards cover for a quick single.", commentTypeId: "1", overNumber: 20 }]
-                },
-                {
-                    ballNumber: 6,
-                    runs: 2,
-                    runsScored: 2,
-                    runsConceded: 2,
-                    isWicket: false,
-                    comments: [{ message: "Driven firmly into the gap at deep extra cover for a brace.", commentTypeId: "1", overNumber: 20 }]
-                }
-            ]
-        },
-        {
-            id: 19,
-            overNumber: 19,
-            totalInningRuns: Math.max(0, team1Score - 14),
-            totalInningWickets: team1Wickets,
-            totalRuns: 9,
-            runsConceded: 9,
-            runrate: 8.5,
-            balls: [
-                {
-                    ballNumber: 1,
-                    runs: 1,
-                    runsScored: 1,
-                    runsConceded: 1,
-                    isWicket: false,
-                    comments: [{ message: "Guided down towards third man for a single.", commentTypeId: "1", overNumber: 19 }]
-                },
-                {
-                    ballNumber: 2,
-                    runs: 4,
-                    runsScored: 4,
-                    runsConceded: 4,
-                    isWicket: false,
-                    comments: [{ message: "FOUR! Cut away behind point, beats the infield easily!", commentTypeId: "1", overNumber: 19 }]
-                },
-                {
-                    ballNumber: 3,
-                    runs: 1,
-                    runsScored: 1,
-                    runsConceded: 1,
-                    isWicket: false,
-                    comments: [{ message: "Steered past backward point for one.", commentTypeId: "1", overNumber: 19 }]
-                },
-                {
-                    ballNumber: 4,
-                    runs: 2,
-                    runsScored: 2,
-                    runsConceded: 2,
-                    isWicket: false,
-                    comments: [{ message: "Punched towards wide long-on, batsman push hard for two.", commentTypeId: "1", overNumber: 19 }]
-                },
-                {
-                    ballNumber: 5,
-                    runs: 1,
-                    runsScored: 1,
-                    runsConceded: 1,
-                    isWicket: false,
-                    comments: [{ message: "Short of a length on off, worked away into mid-wicket.", commentTypeId: "1", overNumber: 19 }]
-                },
-                {
-                    ballNumber: 6,
-                    runs: 0,
-                    runsScored: 0,
-                    runsConceded: 0,
-                    isWicket: false,
-                    comments: [{ message: "Swing and a miss outside off stump to finish the over.", commentTypeId: "1", overNumber: 19 }]
-                }
-            ]
+        // Live Dynamic Commentary Scraping
+        const scrapedComm = await scrapeCommentary(fixtureId, team1Score, team1Wickets);
+        if (scrapedComm && scrapedComm.inning && scrapedComm.inning.overs && scrapedComm.inning.overs.length > 0) {
+            return res.json(scrapedComm);
         }
-    ];
 
-    res.json({
-        inning: {
-            currentRunRate: 8.7,
-            runsScored: team1Score,
-            overs: generatedOvers
-        },
-        nextPage: "2"
-    });
+        // Generate fallback overs list so LiveInfo, Highlights, and OversInfo fragments NEVER crash
+        const generatedOvers = [
+            {
+                id: 20,
+                overNumber: 20,
+                totalInningRuns: team1Score,
+                totalInningWickets: team1Wickets,
+                totalRuns: 14,
+                runsConceded: 14,
+                runrate: 8.8,
+                balls: [
+                    {
+                        ballNumber: 1,
+                        runs: 1,
+                        runsScored: 1,
+                        runsConceded: 1,
+                        isWicket: false,
+                        comments: [{ message: "Full toss on off, punched down to long-off for a single.", commentTypeId: "1", overNumber: 20 }]
+                    },
+                    {
+                        ballNumber: 2,
+                        runs: 4,
+                        runsScored: 4,
+                        runsConceded: 4,
+                        isWicket: false,
+                        comments: [{ message: "FOUR! Slashed over backward point with tremendous timing!", commentTypeId: "1", overNumber: 20 }]
+                    },
+                    {
+                        ballNumber: 3,
+                        runs: 0,
+                        runsScored: 0,
+                        runsConceded: 0,
+                        isWicket: false,
+                        comments: [{ message: "Dot ball. Yorker fired right into the blockhole.", commentTypeId: "1", overNumber: 20 }]
+                    },
+                    {
+                        ballNumber: 4,
+                        runs: 6,
+                        runsScored: 6,
+                        runsConceded: 6,
+                        isWicket: false,
+                        comments: [{ message: "SIX! Launched high into the stands over deep square leg!", commentTypeId: "1", overNumber: 20 }]
+                    },
+                    {
+                        ballNumber: 5,
+                        runs: 1,
+                        runsScored: 1,
+                        runsConceded: 1,
+                        isWicket: false,
+                        comments: [{ message: "Good length ball tapped towards cover for a quick single.", commentTypeId: "1", overNumber: 20 }]
+                    },
+                    {
+                        ballNumber: 6,
+                        runs: 2,
+                        runsScored: 2,
+                        runsConceded: 2,
+                        isWicket: false,
+                        comments: [{ message: "Driven firmly into the gap at deep extra cover for a brace.", commentTypeId: "1", overNumber: 20 }]
+                    }
+                ]
+            },
+            {
+                id: 19,
+                overNumber: 19,
+                totalInningRuns: Math.max(0, team1Score - 14),
+                totalInningWickets: team1Wickets,
+                totalRuns: 9,
+                runsConceded: 9,
+                runrate: 8.5,
+                balls: [
+                    {
+                        ballNumber: 1,
+                        runs: 1,
+                        runsScored: 1,
+                        runsConceded: 1,
+                        isWicket: false,
+                        comments: [{ message: "Guided down towards third man for a single.", commentTypeId: "1", overNumber: 19 }]
+                    },
+                    {
+                        ballNumber: 2,
+                        runs: 4,
+                        runsScored: 4,
+                        runsConceded: 4,
+                        isWicket: false,
+                        comments: [{ message: "FOUR! Cut away behind point, beats the infield easily!", commentTypeId: "1", overNumber: 19 }]
+                    },
+                    {
+                        ballNumber: 3,
+                        runs: 1,
+                        runsScored: 1,
+                        runsConceded: 1,
+                        isWicket: false,
+                        comments: [{ message: "Steered past backward point for one.", commentTypeId: "1", overNumber: 19 }]
+                    },
+                    {
+                        ballNumber: 4,
+                        runs: 2,
+                        runsScored: 2,
+                        runsConceded: 2,
+                        isWicket: false,
+                        comments: [{ message: "Punched towards wide long-on, batsman push hard for two.", commentTypeId: "1", overNumber: 19 }]
+                    },
+                    {
+                        ballNumber: 5,
+                        runs: 1,
+                        runsScored: 1,
+                        runsConceded: 1,
+                        isWicket: false,
+                        comments: [{ message: "Short of a length on off, worked away into mid-wicket.", commentTypeId: "1", overNumber: 19 }]
+                    },
+                    {
+                        ballNumber: 6,
+                        runs: 0,
+                        runsScored: 0,
+                        runsConceded: 0,
+                        isWicket: false,
+                        comments: [{ message: "Swing and a miss outside off stump to finish the over.", commentTypeId: "1", overNumber: 19 }]
+                    }
+                ]
+            }
+        ];
+
+        res.json({
+            inning: {
+                currentRunRate: 8.7,
+                runsScored: team1Score,
+                overs: generatedOvers
+            },
+            nextPage: "2"
+        });
+    } catch (err) {
+        console.error("Comments error:", err);
+        res.status(200).json({
+            inning: {
+                currentRunRate: 6.0,
+                runsScored: 120,
+                overs: []
+            },
+            nextPage: "1"
+        });
+    }
 });
 
 // ==========================================
