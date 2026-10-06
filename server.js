@@ -1717,9 +1717,12 @@ async function fetchCricketData() {
     }
 
     try {
-        const [liveRes, upRes] = await Promise.allSettled([
+        const [liveTabRes, mainRes, recentRes, upTabRes, schedRes] = await Promise.allSettled([
+            axios.get('https://m.cricbuzz.com/cricket-match/live-scores/live-matches', { headers: HEADERS, timeout: 7000 }),
             axios.get('https://m.cricbuzz.com/cricket-match/live-scores', { headers: HEADERS, timeout: 7000 }),
-            axios.get('https://m.cricbuzz.com/cricket-match/live-scores/upcoming-matches', { headers: HEADERS, timeout: 7000 })
+            axios.get('https://m.cricbuzz.com/cricket-match/live-scores/recent-matches', { headers: HEADERS, timeout: 7000 }),
+            axios.get('https://m.cricbuzz.com/cricket-match/live-scores/upcoming-matches', { headers: HEADERS, timeout: 7000 }),
+            axios.get('https://m.cricbuzz.com/cricket-schedule/upcoming-series/international', { headers: HEADERS, timeout: 7000 })
         ]);
 
         const inProgress = [];
@@ -1727,7 +1730,8 @@ async function fetchCricketData() {
         const upcoming = [];
         const seenIds = new Set();
 
-        function processHtml(html, isUpcomingPage) {
+        function processHtml(html, defaultCat) {
+            if (!html) return;
             const $ = cheerio.load(html);
             $('a[href^="/live-cricket-scores/"]').each((i, el) => {
                 const matchContainer = $(el);
@@ -1736,7 +1740,7 @@ async function fetchCricketData() {
 
                 const href = matchContainer.attr('href') || '';
                 const parts = href.split('/');
-                const matchId = parseInt(parts[2]) || (1000 + i);
+                const matchId = parseInt(parts[2]) || (2000 + i);
                 if (seenIds.has(matchId)) return;
                 seenIds.add(matchId);
 
@@ -1763,7 +1767,7 @@ async function fetchCricketData() {
                 const team2Logo = t2.find('img').attr('src') || "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_160,q_50/lsci/db/PICTURES/CMS/313100/313129.logo.png";
 
                 const statusSpan = matchContainer.find('span[class*="text-cb"]').last();
-                const statusText = statusSpan.text().trim() || (isUpcomingPage ? "Match scheduled" : (team1ScoreText ? `${team1Short} ${team1ScoreText}` : "Live"));
+                let statusText = statusSpan.text().trim() || (defaultCat === 'upcoming' ? "Match scheduled" : (team1ScoreText ? `${team1Short} ${team1ScoreText}` : "Live"));
 
                 const s1 = parseScore(team1ScoreText);
                 const s2 = parseScore(team2ScoreText);
@@ -1773,8 +1777,8 @@ async function fetchCricketData() {
                 if (lowerTitle.includes('odi') || lowerTitle.includes('50 ov')) gameType = "ODI";
                 else if (lowerTitle.includes('test') || lowerTitle.includes('day ')) gameType = "TEST";
 
-                const t1Id = 100 + i;
-                const t2Id = 200 + i;
+                const t1Id = 100 + (matchId % 500);
+                const t2Id = 200 + (matchId % 500);
 
                 const matchObj = {
                     Id: matchId,
@@ -1835,13 +1839,22 @@ async function fetchCricketData() {
                 };
 
                 const lowerStatus = statusText.toLowerCase();
-                if (isUpcomingPage || lowerStatus.includes('preview') || lowerStatus.includes('starts at') || lowerStatus.includes('scheduled')) {
+                if (defaultCat === 'upcoming' || lowerStatus.includes('preview') || lowerStatus.includes('starts at') || lowerStatus.includes('scheduled') || !statusText) {
                     matchObj.GameStatusId = "Prematch";
+                    matchObj.GamedayStatus = "Prematch";
+                    matchObj.GameStatus = (statusText && statusText !== "Live") ? statusText : "Match scheduled";
+                    matchObj.ResultText = matchObj.GameStatus;
+                    matchObj.TossResult = "Toss yet to take place";
                     matchObj.IsLive = false;
                     matchObj.IsInProgress = false;
+                    matchObj.Innings = [
+                        { Id: 1, BattingTeamId: t1Id, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" },
+                        { Id: 2, BattingTeamId: t2Id, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" }
+                    ];
                     upcoming.push(matchObj);
-                } else if (lowerStatus.includes('won by') || lowerStatus.includes('match tied') || lowerStatus.includes('draw')) {
+                } else if (defaultCat === 'recent' || lowerStatus.includes('won by') || lowerStatus.includes('match tied') || lowerStatus.includes('draw')) {
                     matchObj.GameStatusId = "Completed";
+                    matchObj.GamedayStatus = "Completed";
                     matchObj.IsCompleted = true;
                     matchObj.IsLive = false;
                     matchObj.IsInProgress = false;
@@ -1852,13 +1865,84 @@ async function fetchCricketData() {
             });
         }
 
-        if (liveRes.status === 'fulfilled') processHtml(liveRes.value.data, false);
-        if (upRes.status === 'fulfilled') processHtml(upRes.value.data, true);
+        if (liveTabRes.status === 'fulfilled') processHtml(liveTabRes.value.data, 'live');
+        if (mainRes.status === 'fulfilled') processHtml(mainRes.value.data, 'live');
+        if (recentRes.status === 'fulfilled') processHtml(recentRes.value.data, 'recent');
+        if (upTabRes.status === 'fulfilled') processHtml(upTabRes.value.data, 'upcoming');
 
-        if (inProgress.length > 0 || completed.length > 0 || upcoming.length > 0) {
+        // Parse international series schedule for upcoming fixtures
+        if (schedRes.status === 'fulfilled') {
+            const $ = cheerio.load(schedRes.value.data);
+            $('a[href^="/live-cricket-scores/"]').each((i, el) => {
+                const href = $(el).attr('href') || '';
+                const text = $(el).text().replace(/\s+/g, ' ').trim();
+                if (!text.includes(' vs ') && !text.includes(' vs. ')) return;
+                const parts = href.split('/');
+                const matchId = parseInt(parts[2]) || (3000 + i);
+                if (seenIds.has(matchId)) return;
+                seenIds.add(matchId);
+
+                const vsParts = text.split(/\svs\.?\s/i);
+                const team1Name = vsParts[0].trim();
+                const afterVs = vsParts[1] ? vsParts[1].trim() : "Team 2";
+                const team2Name = afterVs.split(' - ')[0].trim();
+                const statusPart = afterVs.includes(' - ') ? afterVs.split(' - ')[1].trim() : "Match scheduled";
+
+                const t1Id = 300 + (matchId % 500);
+                const t2Id = 400 + (matchId % 500);
+
+                upcoming.push({
+                    Id: matchId,
+                    Name: `${team1Name} vs ${team2Name}`,
+                    GameType: "T20",
+                    GameTypeId: 1,
+                    GameStatus: statusPart || "Match scheduled",
+                    GameStatusId: "Prematch",
+                    GamedayStatus: "Prematch",
+                    ResultText: statusPart || "Match scheduled",
+                    TossResult: "Toss yet to take place",
+                    IsLive: false,
+                    IsInProgress: false,
+                    IsCompleted: false,
+                    HomeTeamId: t1Id,
+                    AwayTeamId: t2Id,
+                    HomeTeam: {
+                        Id: t1Id,
+                        Name: team1Name,
+                        ShortName: team1Name.slice(0, 3).toUpperCase(),
+                        LogoUrl: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_160,q_50/lsci/db/PICTURES/CMS/313100/313128.logo.png"
+                    },
+                    AwayTeam: {
+                        Id: t2Id,
+                        Name: team2Name,
+                        ShortName: team2Name.slice(0, 3).toUpperCase(),
+                        LogoUrl: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_160,q_50/lsci/db/PICTURES/CMS/313100/313129.logo.png"
+                    },
+                    Venue: { Id: 1, Name: "International Stadium" },
+                    Competition: { Id: 1, Name: `${team1Name} vs ${team2Name}`, StartDateTime: new Date(Date.now() + 86400000).toISOString(), EndDateTime: new Date(Date.now() + 100800000).toISOString() },
+                    Innings: [
+                        { Id: 1, BattingTeamId: t1Id, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" },
+                        { Id: 2, BattingTeamId: t2Id, RunsScored: 0, NumberOfWicketsFallen: 0, OversBowled: 0, oversBowled: "0.0" }
+                    ],
+                    players: generatePlayers(team1Name, team2Name, t1Id, t2Id)
+                });
+            });
+        }
+
+        // Live matches list: all in-progress matches, supplemented if fewer than 4 with top finished matches
+        const liveMatches = [...inProgress];
+        if (liveMatches.length < 4 && completed.length > 0) {
+            completed.slice(0, 4 - liveMatches.length).forEach(m => {
+                if (!liveMatches.some(x => x.Id === m.Id)) {
+                    liveMatches.push(m);
+                }
+            });
+        }
+
+        if (liveMatches.length > 0 || completed.length > 0 || upcoming.length > 0) {
             const finalUpcoming = (upcoming.length > 0) ? upcoming : getUpcomingMatches();
             cachedData = {
-                InProgressFixtures: inProgress.length > 0 ? inProgress : completed.slice(0, 3),
+                InProgressFixtures: liveMatches.length > 0 ? liveMatches : (inProgress.length > 0 ? inProgress : completed.slice(0, 4)),
                 CompletedFixtures: completed,
                 UpcomingFixtures: finalUpcoming
             };
